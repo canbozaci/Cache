@@ -2,6 +2,7 @@
 L1 Data, L1 Instruction and L2 Unified Cache Design FOR RV64IMC
 
 In the cache design, as specified in the specification, the instruction and data memory is separated at the 1st level, and a unified design has been made at the 2nd level. The block diagram showing the connections of the cache with the memory unit (RAM) located outside the core and the chip and the connections within the cache itself can be seen below. The reset input is not shown in the block diagram due to the large number of cables. Each level cache and controller also have reset inputs. The cache controller was written as a single module in the design, but it is shown here as two modules, because it makes the block diagram more readable.
+
 <p align="center">
   ![q](https://user-images.githubusercontent.com/81713653/185472909-7442a3be-75b6-40bb-a718-2c6bccf4df05.jpg)
 </p>
