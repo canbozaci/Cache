@@ -1,5 +1,5 @@
 # Cache
-L1 Data, L1 Instruction and L2 Unified Cache Design FOR RV64IMC
+## L1 Data, L1 Instruction and L2 Unified Cache Design FOR RV64IMC
 
 In the cache design, as specified in the specification, the instruction and data memory is separated at the 1st level, and a unified design has been made at the 2nd level. The block diagram showing the connections of the cache with the memory unit (RAM) located outside the core and the chip and the connections within the cache itself can be seen below. The reset input is not shown in the block diagram due to the large number of cables. Each level cache and controller also have reset inputs. The cache controller was written as a single module in the design, but it is shown here as two modules, because it makes the block diagram more readable.
 
@@ -18,6 +18,7 @@ In all level caches, 2-level set associativity is preferred in the block placeme
 
 
 ![image](https://user-images.githubusercontent.com/81713653/185473947-39952eec-367d-4cab-931a-a85598cef1fd.png)
+
 Figure 2: Effect of Set Associativity Level on Hit Rate for Different Memory Sizes [1] 
 
 
@@ -29,7 +30,7 @@ In the top-level cache design, the processor waits for the instruction cache rea
 Since the data always comes to the most meaningless bits in the write operation (storage) coming to the data cache at the 1st level, as a result of decoding the 32-bit instruction, with the help of funct3 bits, the bits coming from the core are shifted as necessary and then the decoded instruction is written as a result. On the read (load) side, the most meaningless bits should always be output.
 In the 1st level instruction cache, since compressed (16-bit) and normal (32-bit) instructions coexist, the data to go to the core should be selected accordingly. This selection means that if the last two bits of the data at the given address are "11", it is normal, otherwise it is a compressed instruction. After reading one compressed instruction, the alignment in the cache shifts until another compressed instruction is read, so extra processing is required when reading the instructions. Finally, if the word at the end of the line is wanted to be read after the compressed command is read once, since reading should be done from the address with the next index, the interior design always looks at the data coming from the address with the index. In such a case, if there is a miss at the next address, a write is made here from the higher-level cache. If there is a hit, the output is given data directly and the LRU bit of the set containing the data with the next index is also updated.
 
-REFERENCES:
+## REFERENCES:
 
 1-	Asanovic, K., & Stojanovic, V. (n.d.). Great Ideas in Computer Architecture (Machine Structures) Caches Part 2. Retrieved July 9, 2022, from https://inst.eecs.berkeley.edu/~cs61c/sp15/lec/15/2015Sp-CS61C-L15-kavs-Caches2-6up.pdf
 
