@@ -8,7 +8,7 @@
 - Historical demo RAM, UART, and program-image files are out of the active tree.
 - `make verify` passes: compile, lint/style, smoke simulation, and self-checking scoreboard.
 - Parameter intent is now documented in `docs/PARAMETERS.md`.
-- CI is configured on GitHub Actions for the cleanup branch.
+- CI is configured on GitHub Actions for the cleanup branch using a current checkout action.
 
 ## Remaining Design Gaps
 
