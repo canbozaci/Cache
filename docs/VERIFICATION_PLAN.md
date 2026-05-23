@@ -21,7 +21,18 @@ The scoreboard keeps an independent byte-addressed reference memory initialized 
 - Repeated hit reads after writes.
 - Simultaneous instruction and data requests.
 
-`make verify` runs `make check` followed by `make scoreboard`.
+`make verify` runs `make check`, `make scoreboard`, and `make parameter-compile`.
+
+## Parameter Compile Sweep
+
+`make parameter-compile` elaborates the cache with selected non-default parameter overrides:
+
+- `ADDR_WIDTH=20`
+- `DATA_WIDTH=32`
+- `MEM_DATA_WIDTH=64`
+- `LINE_WIDTH=256`
+
+This is a compile/lint compatibility gate. It proves the RTL is width-clean for these configurations, but it does not yet prove full behavioral correctness for each non-default configuration.
 
 ## Current Result
 
@@ -31,7 +42,7 @@ Known areas not yet covered:
 
 - Instruction/data L1 coherency after data writes to instruction addresses.
 - Native memory backpressure or variable latency.
-- Parameter sweeps.
+- Behavioral parameter sweeps.
 - Protocol assertions.
 
 ## Parameter Verification Direction

@@ -2,7 +2,8 @@
 module Cache_SET_L2#(
     parameter block_size = 128,
     parameter tag_size = 7,
-    parameter idx_size = 8
+    parameter idx_size = 8,
+    parameter line_byte_count = block_size / 8
     )
     (
     input clk,
@@ -13,8 +14,8 @@ module Cache_SET_L2#(
     input [tag_size + idx_size-1:0] tag_and_idx_p2,
     input we_p1, 
     input we_p2, 
-    input [15:0] byte_enable_p1,
-    input [15:0] byte_enable_p2,
+    input [line_byte_count-1:0] byte_enable_p1,
+    input [line_byte_count-1:0] byte_enable_p2,
     output [block_size-1:0] block_read_p1,
     output [block_size-1:0] block_read_p2,
     output valid_p1,
@@ -24,7 +25,12 @@ module Cache_SET_L2#(
     );
     
 
-    L2_dat L2_data_inst( // module that holds data bits L2 (4 kB) (128*256 bits)
+    L2_dat #(
+        .NUM_COL(line_byte_count),
+        .COL_WIDTH(8),
+        .ADDR_WIDTH(idx_size),
+        .DATA_WIDTH(block_size)
+    ) L2_data_inst( // module that holds data bits L2
         .clk(clk), 
         .we_p1(we_p1),
         .we_p2(we_p2), 
@@ -38,7 +44,12 @@ module Cache_SET_L2#(
         .read_data_p2(block_read_p2)
     );
 
-    L2_tgv L2_valid_tag_inst( // module that holds the valid & data bits (10*256 bits)
+    L2_tgv #(
+        .NUM_COL(1),
+        .COL_WIDTH(tag_size + 1),
+        .ADDR_WIDTH(idx_size),
+        .DATA_WIDTH(tag_size + 1)
+    ) L2_valid_tag_inst( // module that holds the valid & data bits
         .clk(clk), 
         .rst(rst),
         .we_p1(we_p1),

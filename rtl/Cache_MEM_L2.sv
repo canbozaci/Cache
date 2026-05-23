@@ -3,7 +3,8 @@ module Cache_MEM_L2#( // L2 cache
     parameter block_size = 128,
     parameter tag_size = 7,
     parameter idx_size = 8,
-    parameter block_no = 256
+    parameter block_no = 256,
+    parameter line_byte_count = block_size / 8
     )
     ( 
     input clk,
@@ -14,8 +15,8 @@ module Cache_MEM_L2#( // L2 cache
     input write_p2,               
     input [block_size-1:0] data_block_write_p1, 
     input [block_size-1:0] data_block_write_p2, 
-    input [15:0] byte_enable_p1,   
-    input [15:0] byte_enable_p2,   
+    input [line_byte_count-1:0] byte_enable_p1,   
+    input [line_byte_count-1:0] byte_enable_p2,   
     input [tag_size+idx_size-1:0] addr_p1,         
     input [tag_size+idx_size-1:0] addr_p2,         
     input ram_write_start,
@@ -83,7 +84,12 @@ module Cache_MEM_L2#( // L2 cache
     assign cache_set_output_select_p1 = ((read_p1) & (hit_s2_p1 & (~hit_s1_p1)));
     assign cache_set_output_select_p2 = ((read_p2) & (hit_s2_p2 & (~hit_s1_p2)));
 
-    Cache_SET_L2 Cache_L2_set1(
+    Cache_SET_L2 #(
+        .block_size(block_size),
+        .tag_size(tag_size),
+        .idx_size(idx_size),
+        .line_byte_count(line_byte_count)
+    ) Cache_L2_set1(
         .clk(clk),
         .rst(rst),
         .block_write_p1(data_block_write_p1),
@@ -102,7 +108,12 @@ module Cache_MEM_L2#( // L2 cache
         .tag_p2(tag_out_s1_p2)
     );
 
-    Cache_SET_L2 Cache_L2_set2(
+    Cache_SET_L2 #(
+        .block_size(block_size),
+        .tag_size(tag_size),
+        .idx_size(idx_size),
+        .line_byte_count(line_byte_count)
+    ) Cache_L2_set2(
         .clk(clk),
         .rst(rst),
         .block_write_p1(data_block_write_p1),

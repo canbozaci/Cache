@@ -7,7 +7,8 @@ module Cache_MEM_L1_data#( // L1 data cache top module
     parameter block_no = 64,
     parameter word_size = 2,
     parameter offset_size = 2,
-    parameter data_width = 64
+    parameter data_width = 64,
+    parameter line_byte_count = block_size / 8
     )
     ( 
     input clk,
@@ -26,8 +27,7 @@ module Cache_MEM_L1_data#( // L1 data cache top module
     );
     // wires
     wire [block_size-1:0] data_in_write; 
-    wire [7:0] byte_enable_l; 
-    wire [7:0] byte_enable_h; 
+    wire [line_byte_count-1:0] byte_enable; 
     wire [tag_size -1:0] tag_input;
     wire [idx_size -1:0] idx_input;
     wire [word_size-1:0] word_input;
@@ -59,7 +59,8 @@ module Cache_MEM_L1_data#( // L1 data cache top module
     Cache_SET_L1_data#( // SET1
         .block_size(block_size),
         .tag_size(tag_size),
-        .idx_size(idx_size)
+        .idx_size(idx_size),
+        .line_byte_count(line_byte_count)
         ) 
     cache_set_0(
         .clk(clk),
@@ -67,7 +68,7 @@ module Cache_MEM_L1_data#( // L1 data cache top module
         .block_write(data_in_write),
         .tag_and_idx({tag_input,idx_input}),
         .we(we_set1),
-        .byte_enable({byte_enable_h,byte_enable_l}),
+        .byte_enable(byte_enable),
         .block_read(data_out_s1),
         .valid(valid_out_s1),
         .tag(tag_out_s1)
@@ -76,7 +77,8 @@ module Cache_MEM_L1_data#( // L1 data cache top module
     Cache_SET_L1_data#( // SET2
         .block_size(block_size),
         .tag_size(tag_size),
-        .idx_size(idx_size)
+        .idx_size(idx_size),
+        .line_byte_count(line_byte_count)
         ) 
     cache_set_1(
         .clk(clk),
@@ -84,7 +86,7 @@ module Cache_MEM_L1_data#( // L1 data cache top module
         .block_write(data_in_write),
         .tag_and_idx({tag_input,idx_input}),
         .we(we_set2),
-        .byte_enable({byte_enable_h,byte_enable_l}),
+        .byte_enable(byte_enable),
         .block_read(data_out_s2),
         .valid(valid_out_s2),
         .tag(tag_out_s2)
@@ -167,8 +169,7 @@ module Cache_MEM_L1_data#( // L1 data cache top module
         .write_strobe(write_strobe),
         .offset(offset_input),
         .word(word_input),
-        .byte_enable_h(byte_enable_h),
-        .byte_enable_l(byte_enable_l),
+        .byte_enable(byte_enable),
         .data_in_write(data_in_write)
         );
 endmodule

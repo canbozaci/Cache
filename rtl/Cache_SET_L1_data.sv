@@ -2,7 +2,8 @@
 module Cache_SET_L1_data#(
     parameter block_size = 128,
     parameter tag_size = 9,
-    parameter idx_size = 6
+    parameter idx_size = 6,
+    parameter line_byte_count = block_size / 8
     )
     (
     input clk,
@@ -10,13 +11,17 @@ module Cache_SET_L1_data#(
     input [block_size-1:0] block_write,
     input [tag_size + idx_size-1:0] tag_and_idx,
     input we,
-    input [15:0] byte_enable,
+    input [line_byte_count-1:0] byte_enable,
     output [block_size-1:0] block_read,
     output valid,
     output [tag_size -1:0] tag
     );
     
-    L1_data_dat L1_data_data_inst( // module that holds data bits L1 (1 kB) (128*64 bits)
+    L1_data_dat #(
+        .DATA_WIDTH(block_size),
+        .ADDR_WIDTH(idx_size),
+        .BYTE_COUNT(line_byte_count)
+    ) L1_data_data_inst( // module that holds data bits L1
         .clk(clk),
         .we(we),
         .byte_enable(byte_enable),
@@ -25,7 +30,11 @@ module Cache_SET_L1_data#(
         .read_data(block_read)
     );
 
-    L1_data_tgv L1_data_valid_tag_inst( // module that holds the valid & data bits (10*64 bits)
+    L1_data_tgv #(
+        .DATA_WIDTH(tag_size + 1),
+        .ADDR_WIDTH(idx_size),
+        .RAM_DEPTH(1 << idx_size)
+    ) L1_data_valid_tag_inst( // module that holds the valid & data bits
         .clk(clk),
         .rst(rst),
         .we(we),

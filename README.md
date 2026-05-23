@@ -25,7 +25,7 @@ For the stronger self-checking cache scoreboard:
 make scoreboard
 ```
 
-`make verify` runs the baseline check plus the scoreboard and is the preferred regression command before RTL changes are considered done.
+`make verify` runs the baseline check, the scoreboard, and a compile-only parameter sweep. It is the preferred regression command before RTL changes are considered done.
 
 To elaborate only the reusable cache top:
 

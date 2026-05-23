@@ -38,12 +38,14 @@ module cache_l1_read_cache #(
     wire we_set1;
     wire we_set2;
     wire cache_set_output_select;
+    wire [BLOCK_WIDTH/8-1:0] full_line_byte_enable;
 
     assign tag_input = addr[TAG_WIDTH+INDEX_WIDTH+WORD_OFFSET_WIDTH+BYTE_OFFSET_WIDTH-1:INDEX_WIDTH+WORD_OFFSET_WIDTH+BYTE_OFFSET_WIDTH];
     assign idx_input = addr[INDEX_WIDTH+WORD_OFFSET_WIDTH+BYTE_OFFSET_WIDTH-1:WORD_OFFSET_WIDTH+BYTE_OFFSET_WIDTH];
     assign word_input = addr[WORD_OFFSET_WIDTH+BYTE_OFFSET_WIDTH-1:BYTE_OFFSET_WIDTH];
     assign offset_input = addr[BYTE_OFFSET_WIDTH-1:0];
     assign data_in_write = fill_block;
+    assign full_line_byte_enable = {(BLOCK_WIDTH/8){1'b1}};
     assign we_set1 = fill & we_s1;
     assign we_set2 = fill & we_s2;
     assign hit = read & (hit_s1 | hit_s2) & ~rst;
@@ -52,14 +54,15 @@ module cache_l1_read_cache #(
     Cache_SET_L1_data #(
         .block_size(BLOCK_WIDTH),
         .tag_size(TAG_WIDTH),
-        .idx_size(INDEX_WIDTH)
+        .idx_size(INDEX_WIDTH),
+        .line_byte_count(BLOCK_WIDTH/8)
     ) cache_set_0 (
         .clk(clk),
         .rst(rst),
         .block_write(data_in_write),
         .tag_and_idx({tag_input, idx_input}),
         .we(we_set1),
-        .byte_enable(16'hffff),
+        .byte_enable(full_line_byte_enable),
         .block_read(data_out_s1),
         .valid(valid_out_s1),
         .tag(tag_out_s1)
@@ -68,14 +71,15 @@ module cache_l1_read_cache #(
     Cache_SET_L1_data #(
         .block_size(BLOCK_WIDTH),
         .tag_size(TAG_WIDTH),
-        .idx_size(INDEX_WIDTH)
+        .idx_size(INDEX_WIDTH),
+        .line_byte_count(BLOCK_WIDTH/8)
     ) cache_set_1 (
         .clk(clk),
         .rst(rst),
         .block_write(data_in_write),
         .tag_and_idx({tag_input, idx_input}),
         .we(we_set2),
-        .byte_enable(16'hffff),
+        .byte_enable(full_line_byte_enable),
         .block_read(data_out_s2),
         .valid(valid_out_s2),
         .tag(tag_out_s2)

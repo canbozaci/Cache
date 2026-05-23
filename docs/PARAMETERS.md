@@ -2,16 +2,19 @@
 
 This document records the current parameter contract for `cache`.
 
-The top-level has width parameters, but the full RTL is not yet proven across multiple configurations. Until the internal controller, arrays, and tests are generalized, only the defaults below are supported.
+The cache now has width-clean RTL elaboration for selected non-default configurations. Full behavioral verification is still complete only for the default configuration used by the smoke and scoreboard tests.
 
-## Current Supported Configuration
+## Top-Level Parameters
 
-| Parameter | Default | Current legal value | Rationale |
-| --- | ---: | ---: | --- |
-| `ADDR_WIDTH` | 19 | 19 | Matches the existing controller address slicing and 512 KiB byte-addressed test space. |
-| `DATA_WIDTH` | 64 | 64 | The data-side cache request path currently supports one 64-bit CPU-side data access. |
-| `MEM_DATA_WIDTH` | 32 | 32 | The native memory side currently moves one 32-bit beat at a time. |
-| `LINE_WIDTH` | 128 | 128 | Cache line fill state machines currently fetch four 32-bit memory beats per line. |
+| Parameter | Default | Meaning |
+| --- | ---: | --- |
+| `ADDR_WIDTH` | 19 | CPU/cache byte-address width. |
+| `DATA_WIDTH` | 64 | Data-side raw request and response width. |
+| `MEM_DATA_WIDTH` | 32 | Native memory-side beat width. |
+| `LINE_WIDTH` | 128 | Cache line width. |
+| `L1_INDEX_WIDTH` | 6 | L1 set index width per way. |
+| `L2_INDEX_WIDTH` | 8 | L2 set index width per way. |
+| `MEMORY_BASE_ADDR` | `32'h2000_0000` | Native memory address base added to cache-local addresses. The default preserves the original low cache-local address bits. |
 
 ## Derived Widths
 
@@ -23,34 +26,52 @@ For the default configuration:
 | Memory-side byte lanes | `MEM_DATA_WIDTH / 8` | 4 |
 | Line bytes | `LINE_WIDTH / 8` | 16 |
 | Memory beats per line | `LINE_WIDTH / MEM_DATA_WIDTH` | 4 |
-| Data beats per line | `LINE_WIDTH / DATA_WIDTH` | 2 |
-| Byte offset bits inside memory word | `log2(MEM_DATA_WIDTH / 8)` | 2 |
-| Byte offset bits inside line | `log2(LINE_WIDTH / 8)` | 4 |
+| L1 word offset bits | `log2((LINE_WIDTH / 8) / 4)` | 2 |
+| Line byte offset bits | `log2(LINE_WIDTH / 8)` | 4 |
+| L1 tag width | `ADDR_WIDTH - L1_INDEX_WIDTH - L1_WORD_OFFSET_WIDTH - 2` | 9 |
+| L2 address width | `ADDR_WIDTH - LINE_OFFSET_WIDTH` | 15 |
+| L2 tag width | `L2_ADDR_WIDTH - L2_INDEX_WIDTH` | 7 |
 
-## Unsupported Combinations
+## Current Verification Status
 
-These are not supported yet:
+Behaviorally verified by smoke and scoreboard:
 
-- `MEM_DATA_WIDTH` other than 32.
-- `DATA_WIDTH` other than 64.
-- `LINE_WIDTH` other than 128.
-- `ADDR_WIDTH` other than 19.
-- `DATA_WIDTH > LINE_WIDTH`.
-- `MEM_DATA_WIDTH > LINE_WIDTH`.
-- Widths that are not byte multiples.
-- Widths that are not powers of two.
-- Any configuration where `LINE_WIDTH` is not an integer multiple of both `DATA_WIDTH` and `MEM_DATA_WIDTH`.
+- `ADDR_WIDTH=19`
+- `DATA_WIDTH=64`
+- `MEM_DATA_WIDTH=32`
+- `LINE_WIDTH=128`
+- `L1_INDEX_WIDTH=6`
+- `L2_INDEX_WIDTH=8`
 
-## Direction For True Bus-Width Genericity
+Compile/lint swept by `make parameter-compile`:
 
-The desired long-term contract is:
+- default configuration
+- `ADDR_WIDTH=20`
+- `DATA_WIDTH=32`
+- `MEM_DATA_WIDTH=64`
+- `LINE_WIDTH=256`
 
-- CPU/data-side raw data width is controlled by `DATA_WIDTH`.
-- Native memory beat width is controlled by `MEM_DATA_WIDTH`.
-- Cache line size is controlled by `LINE_WIDTH`.
-- Internal fill and write-through sequencing derives the number of memory beats from `LINE_WIDTH / MEM_DATA_WIDTH`.
-- Store and load datapath helpers derive byte-lane counts from `DATA_WIDTH / 8`.
-- Cache arrays derive byte-enable width from `LINE_WIDTH / 8`.
-- Tests run a parameter sweep across at least 32-bit and 64-bit data-side widths and 32-bit and 64-bit memory-side widths.
+The compile sweep proves these configurations are width-clean at elaboration. It does not yet prove all cache behavior for those non-default configurations.
 
-Before allowing non-default parameter values, the controller must remove hard-coded 19-bit addresses, 15-bit L2 addresses, 32-bit memory beats, four-beat fills, 64-bit data-side accesses, and fixed byte-strobe widths.
+## Legal Range Rules
+
+The intended legal range is:
+
+- `ADDR_WIDTH` must be large enough to contain tag, index, word offset, and byte offset fields.
+- `DATA_WIDTH`, `MEM_DATA_WIDTH`, and `LINE_WIDTH` must be byte multiples.
+- `DATA_WIDTH`, `MEM_DATA_WIDTH`, and `LINE_WIDTH` should be powers of two.
+- `LINE_WIDTH` must be an integer multiple of `MEM_DATA_WIDTH`.
+- `LINE_WIDTH` must be at least as wide as `DATA_WIDTH`.
+- `L1_INDEX_WIDTH` and `L2_INDEX_WIDTH` must leave at least one tag bit.
+- `MEMORY_BASE_ADDR + cache-local address` must fit within the 32-bit native memory address output.
+
+## Remaining Unsupported Claims
+
+Do not claim behavioral support for non-default configurations until tests cover them.
+
+Specific remaining risks:
+
+- Fill sequencing still follows the existing controller flow and is not yet behaviorally tested for non-default memory beat counts.
+- Write-through sequencing is not yet behaviorally tested for non-default `DATA_WIDTH` or `MEM_DATA_WIDTH`.
+- L1 and L2 replacement behavior is not yet swept across non-default index widths.
+- Testbenches still use the default configuration for functional checks.
