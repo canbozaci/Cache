@@ -50,6 +50,22 @@ module Cache_controller #(
         output reg write_through, 
         output reg instr_write_start
         );
+    localparam LINE_MEM_BEAT_COUNT = LINE_WIDTH / MEM_DATA_WIDTH;
+    localparam [7:0] LINE_MEM_LAST_BEAT =
+        (LINE_MEM_BEAT_COUNT == 1)  ? 8'd0  :
+        (LINE_MEM_BEAT_COUNT == 2)  ? 8'd1  :
+        (LINE_MEM_BEAT_COUNT == 4)  ? 8'd3  :
+        (LINE_MEM_BEAT_COUNT == 8)  ? 8'd7  :
+        (LINE_MEM_BEAT_COUNT == 16) ? 8'd15 : 8'd31;
+    localparam [ADDR_WIDTH-1:0] MEM_ADDR_STEP =
+        (MEM_BYTE_COUNT == 1) ? {{(ADDR_WIDTH-1){1'b0}}, 1'b1} :
+        (MEM_BYTE_COUNT == 2) ? {{(ADDR_WIDTH-2){1'b0}}, 2'd2} :
+        (MEM_BYTE_COUNT == 4) ? {{(ADDR_WIDTH-3){1'b0}}, 3'd4} :
+                                {{(ADDR_WIDTH-4){1'b0}}, 4'd8};
+    localparam [LINE_BYTE_COUNT-1:0] MEMORY_BEAT_BYTE_MASK =
+        {{(LINE_BYTE_COUNT-MEM_BYTE_COUNT){1'b0}}, {MEM_BYTE_COUNT{1'b1}}};
+    localparam MEM_BYTE_OFFSET_WIDTH = $clog2(MEM_BYTE_COUNT);
+
     // State for Instruction Cache Control
     reg [3:0] state_instr;
     parameter state_instr_idle                  = 4'd0,  // idle state waiting for read instruction input, if there is a read go into state_instr_read
@@ -58,17 +74,12 @@ module Cache_controller #(
               state_instr_miss_L1_step1         = 4'd3,  // read L2 signal and decides if there is a hit or start main memory transfer, if L1 hit go into state_instr_hit_L2_step0 if not go into state_instr_miss_L2_s
               state_instr_hit_L2_step0          = 4'd4,  // there is a hit in L2, start writing into L1 instr cache array step0, go into state_instr_hit_L2_step1
               state_instr_hit_L2_step1          = 4'd5,  // there is a hit in L2, start writing into L1 instr cache array step1, if L1 hit go into state_instr_idle
-              state_instr_miss_L2_step0         = 4'd6,  // main memory transfer [31:0],wait for memory done signals if instr is using memory and done signal then go into state_instr_miss_L2_step0
-              state_instr_miss_L2_step1         = 4'd7,  // main memory transfer [63:32], wait for memory done signals if instr is using memory and done signal then go into state_instr_miss_L2_step1
-              state_instr_miss_L2_step2         = 4'd8,  // main memory transfer [95:64], wait for memory done signals if instr is using memory and done signal then go into state_instr_miss_L2_step2
-              state_instr_miss_L2_step3         = 4'd9,  // main memory transfer [127:96], wait for memory done signals if instr is using memory and done signal then go into state_instr_miss_L2_done_step0
+              state_instr_miss_L2_step0         = 4'd6,  // main memory line fill beat loop
               state_instr_miss_L2_done_step0    = 4'd10, // main memory transfer is done, start writing into L1 instr cache array step0, go into state_instr_miss_L2_done_step1
               state_instr_miss_L2_done_step1    = 4'd11; // main memory transfer is done, start writing into L1 instr cache array step1, if hit go into state_instr_idle
     reg miss_L1_instr;           // indicates that there is a miss in L1_instr (output from FSM)
     reg main_mem_transfer_instr; // indicates that main memory will be used for instruction cache
     reg transfer_instr_step1;    // step 1 for instruction transfer is done
-    reg transfer_instr_step2;    // step 2 for instruction transfer is done
-    reg transfer_instr_step3;    // step 3 for instruction transfer is done
     reg ram_write_start_instr; // First write signal for L2 cache from instruction, for replacement algorithm
     
     // State for Data Cache Control & Registers
@@ -80,10 +91,7 @@ module Cache_controller #(
               state_data_hit_L2_step0           = 5'd4, // there is a hit in L2, start writing into L1 data cache array step0, go into state_data_hit_L2_step1
               state_data_hit_L2_step1           = 5'd5, // there is a hit in L2, start writing into L1 data cache array step1, if L1 hit go into state_data_idle
               state_data_miss_L2_step           = 5'd6,  // wait before memory transfer in case instruction is trying to read and do not conflict go into state state_data_miss_L2_step0
-              state_data_miss_L2_step0          = 5'd7, // main memory transfer [31:0],wait for memory done signals if data is using memory and done signal then go into state_data_miss_L2_step0
-              state_data_miss_L2_step1          = 5'd8, // main memory transfer [63:32], wait for memory done signals if data is using memory and done signal then go into state_data_miss_L2_step1
-              state_data_miss_L2_step2          = 5'd9, // main memory transfer [95:64], wait for memory done signals if data is using memory and done signal then go into state_data_miss_L2_step2
-              state_data_miss_L2_step3          = 5'd10,// main memory transfer [127:96], wait for memory done signals if data is using memory and done signal then go into state_data_miss_L2_done_step0
+              state_data_miss_L2_step0          = 5'd7, // main memory line fill beat loop
               state_data_miss_L2_done_step0     = 5'd11,  // main memory transfer is done, start writing into L1 data cache array step0, go into state_data_miss_L2_done_step1
               state_data_miss_L2_done_step1     = 5'd12,  // main memory transfer is done, start writing into L1 data cache array step1, if hit go into state_data_idle
               state_data_write_step0            = 5'd13,  // state to stabilize reading to decide write on which set go into state_data_write_step1
@@ -100,23 +108,17 @@ module Cache_controller #(
     reg miss_L1_data; // indicates that there is a miss in L1_data (output from FSM)
     reg main_mem_transfer_data; // indicates that main memory will be used for data cache 
     reg transfer_data_step1; // step 1 for data transfer is done// 
-    reg transfer_data_step2; // step 2 for data transfer is done
-    reg transfer_data_step3; // step 3 for data transfer is done
     reg ram_write_start_data; // First write signal for L2 cache from data, for replacement algorithm
     reg write_through_miss; // write through miss occurs when writing into an address that does not exist in L1 data cache
-    reg start_write_transfer; // start write transfer 
-    reg start_write_transfer2; // start write transfer2 if the first 32 bits have transferred and upper byte strobes are active
+    reg start_write_transfer; // start write transfer
+    reg start_write_transfer2; // acknowledge that the next write beat is ready
     // State for Main Memory Transfer (While Reading instruction or data)
     reg [2:0] state_main_mem;
     parameter state_main_mem_idle          = 3'd0, // idle waiting for instruction or data transfer
-              state_main_mem_transfer_0    = 3'd1, // main memory transfer [31:0],   wait for done signals from instruction or data cache controller
-              state_main_mem_transfer_1    = 3'd2, // main memory transfer [63:32],  wait for done signals from instruction or data cache controller
-              state_main_mem_transfer_2    = 3'd3, // main memory transfer [95:64],  wait for done signals from instruction or data cache controller
-              state_main_mem_transfer_3    = 3'd4; // main memory transfer [127:96], wait for done signals from instruction or data cache controller
-    reg main_mem_done; // memory transfer is done
+              state_main_mem_transfer_0    = 3'd1, // main memory line fill beat valid
+              state_main_mem_transfer_1    = 3'd2, // wait for cache-side beat acknowledge
+              state_main_mem_transfer_2    = 3'd3; // allow next read data to settle
     reg main_mem_done_step0; // memory transfer transfer 0 is done
-    reg main_mem_done_step1; // memory transfer transfer 1 is done
-    reg main_mem_done_step2; // memory transfer transfer 2 is done
     // State for Main Memory Usage Control (Because only one read port on main memory)
     reg [1:0] state_main_mem_usage;
     parameter state_main_mem_usage_idle       = 2'd0, // wait for instruction or data transfer
@@ -127,22 +129,33 @@ module Cache_controller #(
     // State for Main Memory Write Control
     reg [1:0] state_main_mem_write;
     parameter   state_main_mem_write_idle          = 2'd0,  // waiting for write transfer signal
-                state_main_mem_write_transfer_SD   = 2'd1,  // upper 32-bit write transfer
+                state_main_mem_write_transfer_SD   = 2'd1,  // wait for next write beat
                 state_main_mem_write_transfer_done = 2'd2;   // write transfer is done
-    reg main_mem_write_step1_done; // first 32-bit write is done
+    reg main_mem_write_step1_done; // current write beat is done
     reg main_mem_write_done;  // write transfer is done
     // Registers for L2
     reg [ADDR_WIDTH-1:0] ram_addr_L2_instr;  // L2 instr address port
     reg [ADDR_WIDTH-1:0] ram_addr_L2_data;  // L2 data address port
     reg [ADDR_WIDTH-1:0] ram_addr_L2_data_write; // ram write address
-    reg [MEM_BYTE_COUNT-1:0] data_write_strobe_low_word;
-    reg [MEM_BYTE_COUNT-1:0] data_write_strobe_high_word;
+    reg [MEM_BYTE_COUNT-1:0] data_write_current_strobe;
+    reg [MEM_BYTE_COUNT-1:0] data_write_next_strobe;
+    reg [7:0] data_write_last_beat_index;
+    reg [7:0] instr_fill_beat_index;
+    reg [7:0] data_fill_beat_index;
+    reg [7:0] main_mem_read_beat_index;
+    reg [7:0] main_mem_write_beat_index;
+    reg [7:0] data_write_beat_index;
+    reg [LINE_BYTE_COUNT-1:0] instr_next_fill_byte_enable;
+    reg [LINE_BYTE_COUNT-1:0] data_next_fill_byte_enable;
+    reg [31:0] instr_next_fill_shift;
+    reg [31:0] data_next_fill_shift;
     integer data_write_strobe_index;
     integer data_write_byte_index;
-    wire data_write_needs_second_word;
+    integer data_write_beat_candidate;
     wire [ADDR_WIDTH-1:0] line_addr_mask;
+    wire main_mem_read_beat_ack;
     //
-    assign ram_data = L2_data_block_p1[ram_write_addr[3:2]*MEM_DATA_WIDTH +: MEM_DATA_WIDTH];
+    assign ram_data = L2_data_block_p1[(ram_addr_L2_data_write[LINE_OFFSET_WIDTH-1:MEM_BYTE_OFFSET_WIDTH] * MEM_DATA_WIDTH) +: MEM_DATA_WIDTH];
     assign ram_read       = main_mem_transfer_instr | main_mem_transfer_data;
     assign ram_write_addr = MEMORY_BASE_ADDR + {{(32-ADDR_WIDTH){1'b0}}, ram_addr_L2_data_write};  // from specification ram address is being arranged
     assign ram_read_addr  = transfer_instr == 1 ?
@@ -155,26 +168,32 @@ module Cache_controller #(
                         (L1_instr_addr[L2_ADDR_WIDTH-1:0] + {{(L2_ADDR_WIDTH-2){1'b0}}, 2'b10}) :
                         L1_instr_addr[L2_ADDR_WIDTH-1:0]; // L2 address being decided if there is a miss next it will be next idx address
     assign ram_write_start = ram_write_start_instr | ram_write_start_data;
-    assign data_write_needs_second_word = |data_write_strobe_high_word;
     assign line_addr_mask = {ADDR_WIDTH{1'b1}} << LINE_OFFSET_WIDTH;
+    assign main_mem_read_beat_ack = transfer_data_step1 | transfer_instr_step1;
     //
 
     always @(*) begin
-        data_write_strobe_low_word = {MEM_BYTE_COUNT{1'b0}};
-        data_write_strobe_high_word = {MEM_BYTE_COUNT{1'b0}};
+        instr_next_fill_shift = (({24'b0, instr_fill_beat_index} + 32'd1) * MEM_BYTE_COUNT);
+        data_next_fill_shift = (({24'b0, data_fill_beat_index} + 32'd1) * MEM_BYTE_COUNT);
+        instr_next_fill_byte_enable = MEMORY_BEAT_BYTE_MASK << instr_next_fill_shift;
+        data_next_fill_byte_enable = MEMORY_BEAT_BYTE_MASK << data_next_fill_shift;
+
+        data_write_current_strobe = {MEM_BYTE_COUNT{1'b0}};
+        data_write_next_strobe = {MEM_BYTE_COUNT{1'b0}};
+        data_write_last_beat_index = 8'b0;
         for (data_write_strobe_index = 0; data_write_strobe_index < DATA_BYTE_COUNT; data_write_strobe_index = data_write_strobe_index + 1) begin
             data_write_byte_index = data_write_strobe_index;
-            case (L1_data_addr[1:0])
-                2'b01: data_write_byte_index = data_write_byte_index + 1;
-                2'b10: data_write_byte_index = data_write_byte_index + 2;
-                2'b11: data_write_byte_index = data_write_byte_index + 3;
-                default: data_write_byte_index = data_write_byte_index;
-            endcase
+            data_write_byte_index = data_write_byte_index + (({{(32-ADDR_WIDTH){1'b0}}, L1_data_addr}) % MEM_BYTE_COUNT);
+            data_write_beat_candidate = data_write_byte_index / MEM_BYTE_COUNT;
             if (data_write_strobe[data_write_strobe_index]) begin
-                if (data_write_byte_index < MEM_BYTE_COUNT) begin
-                    data_write_strobe_low_word[data_write_byte_index] = 1'b1;
-                end else if (data_write_byte_index < (2 * MEM_BYTE_COUNT)) begin
-                    data_write_strobe_high_word[data_write_byte_index-MEM_BYTE_COUNT] = 1'b1;
+                if (data_write_beat_candidate == {24'b0, data_write_beat_index}) begin
+                    data_write_current_strobe[data_write_byte_index % MEM_BYTE_COUNT] = 1'b1;
+                end
+                if (data_write_beat_candidate == ({24'b0, data_write_beat_index} + 32'd1)) begin
+                    data_write_next_strobe[data_write_byte_index % MEM_BYTE_COUNT] = 1'b1;
+                end
+                if (data_write_beat_candidate > {24'b0, data_write_last_beat_index}) begin
+                    data_write_last_beat_index = data_write_beat_candidate[7:0];
                 end
             end
         end
@@ -239,8 +258,7 @@ module Cache_controller #(
             write_next        <= 1'b0;
             L1_instr_write    <= 1'b0;
             transfer_instr_step1 <= 1'b0;
-            transfer_instr_step2 <= 1'b0;
-            transfer_instr_step3 <= 1'b0;
+            instr_fill_beat_index <= 8'b0;
             ram_write_start_instr   <= 1'b0;
             main_mem_transfer_instr   <= 1'b0;
             L2_write_p2       <= 1'b0;
@@ -298,7 +316,8 @@ module Cache_controller #(
                     else if(~transfer_data) begin // L2'de de miss, Eger ki Data cache'de de onceden miss varsa ve main memory'yi kullaniyorsa girme bekle.
                         main_mem_transfer_instr   <= 1'b1; // instruction'dan main memory'ye transfer yapilacagini belirtir.
                         L2_write_p2             <= 1'b1; // L2'nin 2.portunun yazma sinyalini ac.
-                        L2_byte_enable_p2       <= {{(LINE_BYTE_COUNT-MEM_BYTE_COUNT){1'b0}}, {MEM_BYTE_COUNT{1'b1}}};
+                        instr_fill_beat_index   <= 8'b0;
+                        L2_byte_enable_p2       <= MEMORY_BEAT_BYTE_MASK;
                         ram_write_start_instr   <= 1'b1;
                         ram_addr_L2_instr         <= {{(ADDR_WIDTH-L2_ADDR_WIDTH){1'b0}}, L2_p2_addr} & line_addr_mask;
                         state_instr               <= state_instr_miss_L2_step0;
@@ -324,44 +343,22 @@ module Cache_controller #(
                 state_instr_miss_L2_step0: begin
                     ram_write_start_instr   <= 1'b0;
                     if(main_mem_done_step0 & transfer_instr) begin
-                        ram_addr_L2_instr       <= ram_addr_L2_instr + {{(ADDR_WIDTH-3){1'b0}}, 3'd4};
-                        L2_byte_enable_p2     <= ({{(LINE_BYTE_COUNT-MEM_BYTE_COUNT){1'b0}}, {MEM_BYTE_COUNT{1'b1}}} << MEM_BYTE_COUNT);
                         transfer_instr_step1    <= 1'b1;
-                        state_instr             <= state_instr_miss_L2_step1;
-                    end
-                end
-
-                state_instr_miss_L2_step1: begin
-                    if(main_mem_done_step1 & transfer_instr) begin
-                        ram_addr_L2_instr       <= ram_addr_L2_instr + {{(ADDR_WIDTH-3){1'b0}}, 3'd4};
-                        L2_byte_enable_p2     <= ({{(LINE_BYTE_COUNT-MEM_BYTE_COUNT){1'b0}}, {MEM_BYTE_COUNT{1'b1}}} << (2 * MEM_BYTE_COUNT));
-                        transfer_instr_step1    <= 1'b0;
-                        transfer_instr_step2    <= 1'b1;
-                        state_instr             <= state_instr_miss_L2_step2;
-                    end
-                end
-
-                state_instr_miss_L2_step2: begin
-                    if(main_mem_done_step2 & transfer_instr) begin
-                        ram_addr_L2_instr       <= ram_addr_L2_instr + {{(ADDR_WIDTH-3){1'b0}}, 3'd4};
-                        L2_byte_enable_p2     <= ({{(LINE_BYTE_COUNT-MEM_BYTE_COUNT){1'b0}}, {MEM_BYTE_COUNT{1'b1}}} << (3 * MEM_BYTE_COUNT));
-                        transfer_instr_step2    <= 1'b0;
-                        transfer_instr_step3    <= 1'b1;
-                        state_instr             <= state_instr_miss_L2_step3;
-                    end
-                end
-
-                state_instr_miss_L2_step3: begin
-                    if(main_mem_done & transfer_instr) begin
-                        ram_addr_L2_instr         <= L1_instr_addr;
-                        L2_write_p2             <= 1'b0;
-                        main_mem_transfer_instr   <= 1'b0;
-                        transfer_instr_step3      <= 1'b0;
-                        L2_byte_enable_p2       <= {LINE_BYTE_COUNT{1'b0}};
-                        L1_instr_write          <= 1'b1;
-                        instr_write_start <= 1'b1;
-
-                        state_instr               <= state_instr_miss_L2_done_step0;
+                        if(instr_fill_beat_index == LINE_MEM_LAST_BEAT) begin
+                            ram_addr_L2_instr       <= L1_instr_addr;
+                            L2_write_p2             <= 1'b0;
+                            main_mem_transfer_instr <= 1'b0;
+                            L2_byte_enable_p2       <= {LINE_BYTE_COUNT{1'b0}};
+                            L1_instr_write          <= 1'b1;
+                            instr_write_start       <= 1'b1;
+                            state_instr             <= state_instr_miss_L2_done_step0;
+                        end else begin
+                            instr_fill_beat_index <= instr_fill_beat_index + 8'd1;
+                            ram_addr_L2_instr     <= ram_addr_L2_instr + MEM_ADDR_STEP;
+                            L2_byte_enable_p2     <= instr_next_fill_byte_enable;
+                        end
+                    end else begin
+                        transfer_instr_step1 <= 1'b0;
                     end
                 end
 
@@ -389,18 +386,14 @@ module Cache_controller #(
     always @(posedge mem_clk) begin // main memory okuma yaparken senkronizasyon amacli state machine
         if(rst) begin
             state_main_mem <= state_main_mem_idle;
-            main_mem_done  <= 1'b0;
             main_mem_done_step0 <= 1'b0;
-            main_mem_done_step1 <= 1'b0;
-            main_mem_done_step2 <= 1'b0;
+            main_mem_read_beat_index <= 8'b0;
         end
         else begin
             case(state_main_mem) 
                 state_main_mem_idle: begin
-                    main_mem_done     <= 1'b0;
                     main_mem_done_step0 <= 1'b0;
-                    main_mem_done_step1 <= 1'b0;
-                    main_mem_done_step2 <= 1'b0;
+                    main_mem_read_beat_index <= 8'b0;
                     if(main_mem_transfer_instr | main_mem_transfer_data) begin
                         state_main_mem          <= state_main_mem_transfer_0;
                     end
@@ -408,35 +401,23 @@ module Cache_controller #(
 
                 state_main_mem_transfer_0: begin
                     main_mem_done_step0 <= 1'b1;
-                    if(transfer_data_step1 | transfer_instr_step1) begin
-                        state_main_mem      <= state_main_mem_transfer_1;
-                    end
+                    state_main_mem <= state_main_mem_transfer_1;
                 end
 
                 state_main_mem_transfer_1: begin
                     main_mem_done_step0 <= 1'b0;
-                    main_mem_done_step1 <= 1'b1;
-                    if(transfer_data_step2 | transfer_instr_step2) begin
-                        state_main_mem       <= state_main_mem_transfer_2;
+                    if(main_mem_read_beat_ack) begin
+                        if(main_mem_read_beat_index == LINE_MEM_LAST_BEAT) begin
+                            state_main_mem <= state_main_mem_idle;
+                        end else begin
+                            main_mem_read_beat_index <= main_mem_read_beat_index + 8'd1;
+                            state_main_mem <= state_main_mem_transfer_2;
+                        end
                     end
                 end
 
                 state_main_mem_transfer_2: begin
-                    main_mem_done_step1 <= 1'b0;
-                    main_mem_done_step2 <= 1'b1;
-                    if(transfer_data_step3 | transfer_instr_step3) begin
-                        state_main_mem      <= state_main_mem_transfer_3;
-                    end
-
-                end
-
-                state_main_mem_transfer_3: begin
-                    if(main_mem_done) begin
-                        state_main_mem <= state_main_mem_idle;
-                    end
-                    main_mem_done_step2 <= 1'b0;
-                    main_mem_done       <= 1'b1;
-                    //state_main_mem      <= state_main_mem_idle;
+                    state_main_mem <= state_main_mem_transfer_0;
                 end
 
                 default: state_main_mem <= state_main_mem_idle;
@@ -448,13 +429,17 @@ module Cache_controller #(
         if(rst) begin
             state_main_mem_write <= state_main_mem_write_idle;
             main_mem_write_done  <= 1'b0;
+            main_mem_write_step1_done <= 1'b0;
+            main_mem_write_beat_index <= 8'b0;
         end
         else begin
             case(state_main_mem_write) 
                 state_main_mem_write_idle: begin
                     main_mem_write_done <= 1'b0;    
+                    main_mem_write_step1_done <= 1'b0;
+                    main_mem_write_beat_index <= 8'b0;
                     if(start_write_transfer) begin
-                        if(data_write_needs_second_word) begin
+                        if(data_write_last_beat_index != 8'b0) begin
                             state_main_mem_write      <= state_main_mem_write_transfer_SD;
                         end
                         else begin
@@ -465,7 +450,12 @@ module Cache_controller #(
                 state_main_mem_write_transfer_SD: begin
                     main_mem_write_step1_done       <= 1'b1;
                     if(start_write_transfer2) begin
-                        state_main_mem_write      <= state_main_mem_write_transfer_done;
+                        main_mem_write_step1_done <= 1'b0;
+                        if(main_mem_write_beat_index == (data_write_last_beat_index - 8'd1)) begin
+                            state_main_mem_write <= state_main_mem_write_transfer_done;
+                        end else begin
+                            main_mem_write_beat_index <= main_mem_write_beat_index + 8'd1;
+                        end
                     end
                 end 
                 state_main_mem_write_transfer_done: begin
@@ -493,8 +483,8 @@ module Cache_controller #(
             start_write_transfer            <= 1'b0;
             start_write_transfer2           <= 1'b0;
             transfer_data_step1             <= 1'b0;
-            transfer_data_step2             <= 1'b0;
-            transfer_data_step3             <= 1'b0;
+            data_fill_beat_index            <= 8'b0;
+            data_write_beat_index            <= 8'b0;
             ram_write_start_data          <= 1'b0;
             state_data                      <= state_data_idle;
         end
@@ -524,8 +514,8 @@ module Cache_controller #(
                     start_write_transfer            <= 1'b0;
                     start_write_transfer2           <= 1'b0;
                     transfer_data_step1             <= 1'b0;
-                    transfer_data_step2             <= 1'b0;
-                    transfer_data_step3             <= 1'b0;
+                    data_fill_beat_index            <= 8'b0;
+                    data_write_beat_index            <= 8'b0;
                     ram_write_start_data          <= 1'b0;
                     state_data                      <= state_data_idle;
                 end
@@ -558,7 +548,8 @@ module Cache_controller #(
                 else if(~transfer_instr & ~((state_instr == state_instr_miss_L1_step1) & ~L2_p2_hit))begin // L2'de de miss var. L1 instr cache main memory'yi kullanmiyorsa ve su anda kullanmiyacaksa buraya gir.
                     
                     L2_write_p1          <= 1'b1;
-                    L2_byte_enable_p1    <= {{(LINE_BYTE_COUNT-MEM_BYTE_COUNT){1'b0}}, {MEM_BYTE_COUNT{1'b1}}};
+                    data_fill_beat_index <= 8'b0;
+                    L2_byte_enable_p1    <= MEMORY_BEAT_BYTE_MASK;
                     ram_write_start_data   <= 1'b1;
                     ram_addr_L2_data       <= L1_data_addr & line_addr_mask; // 
                     state_data             <= state_data_miss_L2_step;
@@ -588,42 +579,21 @@ module Cache_controller #(
             state_data_miss_L2_step0: begin
                 ram_write_start_data  <= 1'b0;
                 if(main_mem_done_step0 & transfer_data) begin
-                    ram_addr_L2_data        <= ram_addr_L2_data + {{(ADDR_WIDTH-3){1'b0}}, 3'd4};
-                    L2_byte_enable_p1     <= ({{(LINE_BYTE_COUNT-MEM_BYTE_COUNT){1'b0}}, {MEM_BYTE_COUNT{1'b1}}} << MEM_BYTE_COUNT);
                     transfer_data_step1     <= 1'b1;
-                    state_data              <= state_data_miss_L2_step1;
-                end
-            end
-
-            state_data_miss_L2_step1: begin
-                if(main_mem_done_step1 & transfer_data) begin
-                    ram_addr_L2_data        <= ram_addr_L2_data + {{(ADDR_WIDTH-3){1'b0}}, 3'd4};
-                    L2_byte_enable_p1     <= ({{(LINE_BYTE_COUNT-MEM_BYTE_COUNT){1'b0}}, {MEM_BYTE_COUNT{1'b1}}} << (2 * MEM_BYTE_COUNT));
-                    transfer_data_step2     <= 1'b1;
-                    transfer_data_step1     <= 1'b0;
-                    state_data              <= state_data_miss_L2_step2;
-                end
-            end
-
-            state_data_miss_L2_step2: begin
-                if(main_mem_done_step2 & transfer_data) begin
-                    ram_addr_L2_data        <= ram_addr_L2_data + {{(ADDR_WIDTH-3){1'b0}}, 3'd4};
-                    L2_byte_enable_p1     <= ({{(LINE_BYTE_COUNT-MEM_BYTE_COUNT){1'b0}}, {MEM_BYTE_COUNT{1'b1}}} << (3 * MEM_BYTE_COUNT));
-                    transfer_data_step3     <= 1'b1;
-                    transfer_data_step2     <= 1'b0;
-                    state_data              <= state_data_miss_L2_step3;
-                end
-            end
-
-            state_data_miss_L2_step3: begin
-                if(main_mem_done & transfer_data) begin
-                    ram_addr_L2_data        <= L1_data_addr & line_addr_mask;
-                    transfer_data_step3     <= 1'b0;
-                    main_mem_transfer_data  <= 1'b0;
-                    L2_byte_enable_p1     <= {LINE_BYTE_COUNT{1'b0}};
-                    L2_write_p1           <= 1'b0;
-                    write_L2              <= 1'b1;
-                    state_data              <= state_data_miss_L2_done_step0;
+                    if(data_fill_beat_index == LINE_MEM_LAST_BEAT) begin
+                        ram_addr_L2_data       <= L1_data_addr & line_addr_mask;
+                        main_mem_transfer_data <= 1'b0;
+                        L2_byte_enable_p1      <= {LINE_BYTE_COUNT{1'b0}};
+                        L2_write_p1            <= 1'b0;
+                        write_L2               <= 1'b1;
+                        state_data             <= state_data_miss_L2_done_step0;
+                    end else begin
+                        data_fill_beat_index <= data_fill_beat_index + 8'd1;
+                        ram_addr_L2_data     <= ram_addr_L2_data + MEM_ADDR_STEP;
+                        L2_byte_enable_p1    <= data_next_fill_byte_enable;
+                    end
+                end else begin
+                    transfer_data_step1 <= 1'b0;
                 end
             end
 
@@ -691,8 +661,9 @@ module Cache_controller #(
             state_data_writethrough_step6: begin // L2'den okuma yapildi.
                 start_write_transfer     <= 1'b1;
                 ram_addr_L2_data_write   <= L1_data_addr;
-                wr_strb                 <= data_write_strobe_low_word;
-                if(data_write_needs_second_word) begin
+                data_write_beat_index    <= 8'b0;
+                wr_strb                  <= data_write_current_strobe;
+                if(data_write_last_beat_index != 8'b0) begin
                     state_data       <= state_data_writethrough_SD;
                 end
                 else begin
@@ -703,10 +674,15 @@ module Cache_controller #(
             state_data_writethrough_SD: begin
                 if(main_mem_write_step1_done) begin
                     start_write_transfer      <= 1'b0;
-                    ram_addr_L2_data_write    <= ram_addr_L2_data_write + {{(ADDR_WIDTH-3){1'b0}}, 3'd4};
-                    wr_strb                 <= data_write_strobe_high_word;
+                    data_write_beat_index     <= data_write_beat_index + 8'd1;
+                    ram_addr_L2_data_write    <= ram_addr_L2_data_write + MEM_ADDR_STEP;
+                    wr_strb                   <= data_write_next_strobe;
                     start_write_transfer2     <= 1'b1;
-                    state_data                <= state_data_writethrough_done;
+                    if(data_write_beat_index == (data_write_last_beat_index - 8'd1)) begin
+                        state_data <= state_data_writethrough_done;
+                    end
+                end else begin
+                    start_write_transfer2 <= 1'b0;
                 end
             end
 

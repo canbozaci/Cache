@@ -10,18 +10,26 @@
 
 ## Scoreboard Regression
 
-`make scoreboard` builds and runs `tb/cache_scoreboard_tb.sv`.
+`make scoreboard` builds and runs `tb/cache_scoreboard_tb.sv` across multiple configurations.
 
 The scoreboard keeps an independent byte-addressed reference memory initialized to match `tb/cache_memory_model.sv`. It checks:
 
 - Cold data reads from external memory.
 - L1 hit reads after a fill.
 - Instruction fetch reads.
-- Byte and word write-through behavior.
+- Byte, word, and unaligned multi-beat write-through behavior.
 - Repeated hit reads after writes.
 - Simultaneous instruction and data requests.
 
 `make verify` runs `make check`, `make scoreboard`, and `make parameter-compile`.
+
+Current scoreboard configurations:
+
+- default
+- `DATA_WIDTH=32`
+- `MEM_DATA_WIDTH=64`
+- `LINE_WIDTH=256`
+- `ADDR_WIDTH=20`
 
 ## Parameter Compile Sweep
 
@@ -32,7 +40,7 @@ The scoreboard keeps an independent byte-addressed reference memory initialized 
 - `MEM_DATA_WIDTH=64`
 - `LINE_WIDTH=256`
 
-This is a compile/lint compatibility gate. It proves the RTL is width-clean for these configurations, but it does not yet prove full behavioral correctness for each non-default configuration.
+This is a compile/lint compatibility gate. Scoreboard covers the same single-parameter width overrides listed above.
 
 ## Current Result
 
@@ -42,7 +50,7 @@ Known areas not yet covered:
 
 - Instruction/data L1 coherency after data writes to instruction addresses.
 - Native memory backpressure or variable latency.
-- Behavioral parameter sweeps.
+- Combined non-default parameter sweeps.
 - Protocol assertions.
 
 ## Parameter Verification Direction
@@ -52,5 +60,6 @@ The current supported parameter set is documented in `docs/PARAMETERS.md`. Befor
 - A compile/lint sweep for the new parameter value.
 - A scoreboard run for at least one non-default cache geometry when the testbench supports it.
 - Directed tests for line-fill beat count, write-strobe width, address offset decode, and partial writes at line boundaries.
+- Directed tests for data widths above 64 bits after the public contract defines whether a request may cross a cache-line boundary.
 
 The next design work should keep this scoreboard passing before simplifying controller wiring or changing cache internals.

@@ -2,7 +2,7 @@
 
 This document records the current parameter contract for `cache`.
 
-The cache now has width-clean RTL elaboration for selected non-default configurations. Full behavioral verification is still complete only for the default configuration used by the smoke and scoreboard tests.
+The cache now has width-clean RTL elaboration and scoreboard coverage for selected non-default configurations. The supported matrix is still intentionally narrow and should grow only with regression coverage.
 
 ## Top-Level Parameters
 
@@ -36,12 +36,11 @@ For the default configuration:
 
 Behaviorally verified by smoke and scoreboard:
 
-- `ADDR_WIDTH=19`
-- `DATA_WIDTH=64`
-- `MEM_DATA_WIDTH=32`
-- `LINE_WIDTH=128`
-- `L1_INDEX_WIDTH=6`
-- `L2_INDEX_WIDTH=8`
+- default: `ADDR_WIDTH=19`, `DATA_WIDTH=64`, `MEM_DATA_WIDTH=32`, `LINE_WIDTH=128`
+- `ADDR_WIDTH=20`
+- `DATA_WIDTH=32`
+- `MEM_DATA_WIDTH=64`
+- `LINE_WIDTH=256`
 
 Compile/lint swept by `make parameter-compile`:
 
@@ -51,7 +50,7 @@ Compile/lint swept by `make parameter-compile`:
 - `MEM_DATA_WIDTH=64`
 - `LINE_WIDTH=256`
 
-The compile sweep proves these configurations are width-clean at elaboration. It does not yet prove all cache behavior for those non-default configurations.
+The scoreboard runs prove the directed cache behaviors listed in `docs/VERIFICATION_PLAN.md` for those single-parameter overrides. Combined non-default configurations and index-width changes are not proven yet.
 
 ## Legal Range Rules
 
@@ -67,11 +66,12 @@ The intended legal range is:
 
 ## Remaining Unsupported Claims
 
-Do not claim behavioral support for non-default configurations until tests cover them.
+Do not claim behavioral support for combinations that are not explicitly covered by scoreboard or directed tests.
 
 Specific remaining risks:
 
-- Fill sequencing still follows the existing controller flow and is not yet behaviorally tested for non-default memory beat counts.
-- Write-through sequencing is not yet behaviorally tested for non-default `DATA_WIDTH` or `MEM_DATA_WIDTH`.
+- Fill sequencing now uses a derived memory-beat count and is tested for `MEM_DATA_WIDTH=64` and `LINE_WIDTH=256`.
+- Write-through sequencing now uses a derived memory-beat index and is tested for one-beat, two-beat, and three-beat directed writes in the current scoreboard matrix.
+- Wider `DATA_WIDTH` values above the current 64-bit default are not behaviorally supported until load/store line-boundary behavior is specified and tested.
 - L1 and L2 replacement behavior is not yet swept across non-default index widths.
-- Testbenches still use the default configuration for functional checks.
+- Combined non-default configurations are not yet swept behaviorally.

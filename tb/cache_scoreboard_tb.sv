@@ -1,11 +1,15 @@
 `timescale 1ns / 1ps
 
-module cache_scoreboard_tb();
-    localparam ADDR_WIDTH = 19;
-    localparam DATA_WIDTH = 64;
-    localparam RAM_ADDR_WIDTH = 17;
-    localparam REF_BYTES = 4096;
+module cache_scoreboard_tb #(
+    parameter ADDR_WIDTH = 19,
+    parameter DATA_WIDTH = 64,
+    parameter MEM_DATA_WIDTH = 32,
+    parameter LINE_WIDTH = 128,
+    parameter RAM_ADDR_WIDTH = 17,
+    parameter REF_BYTES = 4096
+) ();
     localparam REF_WORDS = REF_BYTES / 4;
+    localparam MEM_ADDR_LSB = (MEM_DATA_WIDTH == 64) ? 3 : 2;
 
     reg clk;
     reg mem_clk;
@@ -21,12 +25,12 @@ module cache_scoreboard_tb();
 
     wire [31:0] instr_resp_data;
     wire [DATA_WIDTH-1:0] data_resp_rdata;
-    wire [31:0] mem_rdata;
-    wire [31:0] mem_wdata;
+    wire [MEM_DATA_WIDTH-1:0] mem_rdata;
+    wire [MEM_DATA_WIDTH-1:0] mem_wdata;
     wire [31:0] mem_read_addr;
     wire [31:0] mem_write_addr;
     wire mem_read;
-    wire [3:0] mem_wstrb;
+    wire [(MEM_DATA_WIDTH/8)-1:0] mem_wstrb;
     wire mem_write;
     wire busy;
 
@@ -38,19 +42,24 @@ module cache_scoreboard_tb();
 
     cache_memory_model #(
         .ADDR_WIDTH(RAM_ADDR_WIDTH),
-        .DATA_WIDTH(32)
+        .DATA_WIDTH(MEM_DATA_WIDTH)
     ) main_memory (
         .clk(mem_clk),
         .rst_ni(~rst),
-        .write_addr(mem_write_addr[18:2]),
-        .read_addr(mem_read_addr[18:2]),
+        .write_addr(mem_write_addr[RAM_ADDR_WIDTH+MEM_ADDR_LSB-1:MEM_ADDR_LSB]),
+        .read_addr(mem_read_addr[RAM_ADDR_WIDTH+MEM_ADDR_LSB-1:MEM_ADDR_LSB]),
         .write_data(mem_wdata),
         .write_strobe(mem_wstrb),
         .read_enable(mem_read),
         .read_data(mem_rdata)
     );
 
-    cache dut (
+    cache #(
+        .ADDR_WIDTH(ADDR_WIDTH),
+        .DATA_WIDTH(DATA_WIDTH),
+        .MEM_DATA_WIDTH(MEM_DATA_WIDTH),
+        .LINE_WIDTH(LINE_WIDTH)
+    ) dut (
         .clk(clk),
         .mem_clk(mem_clk),
         .rst(rst),
@@ -94,6 +103,10 @@ module cache_scoreboard_tb();
 
         apply_data_write(19'h00004, 64'h1122_3344_5566_7788, 8'hff, "aligned 64-bit write at word 1");
         expect_data_read(19'h00004, "read after aligned 64-bit write");
+
+        apply_data_write(19'h00002, 64'haabb_ccdd_eeff_1234, 8'hff, "unaligned 64-bit write crossing three memory beats");
+        expect_data_read(19'h00000, "read lower bytes after three-beat write");
+        expect_data_read(19'h00008, "read upper bytes after three-beat write");
 
         apply_data_write(19'h00005, 64'h0000_0000_0000_00cc, 8'h01, "unaligned single byte write");
         expect_data_read(19'h00004, "read after unaligned single byte write");

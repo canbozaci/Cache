@@ -21,10 +21,15 @@ module cache_memory_model #(
 
     integer init_index;
     integer byte_index;
+    integer word_index;
 
     initial begin
         for (init_index = 0; init_index < MEM_DEPTH; init_index = init_index + 1) begin
-            memory_q[init_index] = 32'h1000_0000 ^ init_index[31:0];
+            memory_q[init_index] = {DATA_WIDTH{1'b0}};
+            for (word_index = 0; word_index < (DATA_WIDTH / 32); word_index = word_index + 1) begin
+                memory_q[init_index][word_index*32 +: 32] =
+                    32'h1000_0000 ^ ((init_index * (DATA_WIDTH / 32)) + word_index);
+            end
         end
     end
 
