@@ -2,25 +2,32 @@
 set -euo pipefail
 
 mkdir -p sim/build
-iverilog -g2012 -o sim/build/cache_scoreboard_tb.vvp -f filelists/scoreboard_tb.f
-vvp sim/build/cache_scoreboard_tb.vvp
 
-iverilog -g2012 -o sim/build/cache_scoreboard_dw32_tb.vvp \
-  -P cache_scoreboard_tb.DATA_WIDTH=32 \
-  -f filelists/scoreboard_tb.f
-vvp sim/build/cache_scoreboard_dw32_tb.vvp
+run_case() {
+  local name="$1"
+  shift
 
-iverilog -g2012 -o sim/build/cache_scoreboard_mem64_tb.vvp \
-  -P cache_scoreboard_tb.MEM_DATA_WIDTH=64 \
-  -f filelists/scoreboard_tb.f
-vvp sim/build/cache_scoreboard_mem64_tb.vvp
+  printf "SCOREBOARD: %s\n" "$name"
+  iverilog -g2012 -o "sim/build/cache_scoreboard_${name}_tb.vvp" "$@" -f filelists/scoreboard_tb.f
+  vvp "sim/build/cache_scoreboard_${name}_tb.vvp"
+}
 
-iverilog -g2012 -o sim/build/cache_scoreboard_line256_tb.vvp \
-  -P cache_scoreboard_tb.LINE_WIDTH=256 \
-  -f filelists/scoreboard_tb.f
-vvp sim/build/cache_scoreboard_line256_tb.vvp
-
-iverilog -g2012 -o sim/build/cache_scoreboard_addr20_tb.vvp \
+run_case "default"
+run_case "dw32" -P cache_scoreboard_tb.DATA_WIDTH=32
+run_case "mem64" -P cache_scoreboard_tb.MEM_DATA_WIDTH=64
+run_case "line256" -P cache_scoreboard_tb.LINE_WIDTH=256
+run_case "addr20" -P cache_scoreboard_tb.ADDR_WIDTH=20
+run_case "addr20_dw32" \
   -P cache_scoreboard_tb.ADDR_WIDTH=20 \
-  -f filelists/scoreboard_tb.f
-vvp sim/build/cache_scoreboard_addr20_tb.vvp
+  -P cache_scoreboard_tb.DATA_WIDTH=32
+run_case "mem64_line256" \
+  -P cache_scoreboard_tb.MEM_DATA_WIDTH=64 \
+  -P cache_scoreboard_tb.LINE_WIDTH=256
+run_case "addr20_mem64_line256" \
+  -P cache_scoreboard_tb.ADDR_WIDTH=20 \
+  -P cache_scoreboard_tb.MEM_DATA_WIDTH=64 \
+  -P cache_scoreboard_tb.LINE_WIDTH=256
+run_case "dw32_mem64_line256" \
+  -P cache_scoreboard_tb.DATA_WIDTH=32 \
+  -P cache_scoreboard_tb.MEM_DATA_WIDTH=64 \
+  -P cache_scoreboard_tb.LINE_WIDTH=256

@@ -26,10 +26,14 @@ The scoreboard keeps an independent byte-addressed reference memory initialized 
 Current scoreboard configurations:
 
 - default
+- `ADDR_WIDTH=20`
 - `DATA_WIDTH=32`
 - `MEM_DATA_WIDTH=64`
 - `LINE_WIDTH=256`
-- `ADDR_WIDTH=20`
+- `ADDR_WIDTH=20`, `DATA_WIDTH=32`
+- `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
+- `ADDR_WIDTH=20`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
+- `DATA_WIDTH=32`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 
 ## Parameter Compile Sweep
 
@@ -39,8 +43,12 @@ Current scoreboard configurations:
 - `DATA_WIDTH=32`
 - `MEM_DATA_WIDTH=64`
 - `LINE_WIDTH=256`
+- `ADDR_WIDTH=20`, `DATA_WIDTH=32`
+- `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
+- `ADDR_WIDTH=20`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
+- `DATA_WIDTH=32`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 
-This is a compile/lint compatibility gate. Scoreboard covers the same single-parameter width overrides listed above.
+This is a compile/lint compatibility gate. Scoreboard covers the same single-parameter and combined width overrides listed above.
 
 ## Current Result
 
@@ -50,7 +58,7 @@ Known areas not yet covered:
 
 - Instruction/data L1 coherency after data writes to instruction addresses.
 - Native memory backpressure or variable latency.
-- Combined non-default parameter sweeps.
+- Combined non-default parameter sweeps outside the current scoreboard matrix.
 - Protocol assertions.
 
 ## Parameter Verification Direction
