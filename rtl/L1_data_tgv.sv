@@ -22,7 +22,9 @@ module L1_data_tgv#(
   always @ (posedge clk) begin : MEM_WRITE
     if (rst) begin
       for (mem_index = 0; mem_index < RAM_DEPTH; mem_index = mem_index + 1) begin
-        mem[mem_index] <= {DATA_WIDTH{1'b0}};
+        /* verilator lint_off BLKSEQ */
+        mem[mem_index] = {DATA_WIDTH{1'b0}};
+        /* verilator lint_on BLKSEQ */
       end
       read_data <= {DATA_WIDTH{1'b0}};
     end else begin

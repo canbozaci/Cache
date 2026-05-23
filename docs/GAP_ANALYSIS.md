@@ -8,6 +8,7 @@
 - Historical demo RAM, UART, and program-image files are out of the active tree.
 - `make verify` passes: compile, lint/style, smoke simulation, and self-checking scoreboard.
 - Parameter intent is now documented in `docs/PARAMETERS.md`.
+- CI is configured on GitHub Actions for the cleanup branch.
 
 ## Remaining Design Gaps
 
@@ -20,6 +21,7 @@
 - Runtime flush, invalidate, and maintenance operations are not defined.
 - ASIC SRAM macro replacement wrappers and read/write behavior assumptions are not defined.
 - Historical module names remain in several internal blocks.
+- Tag/valid inferred-memory resets are written to satisfy both local and GitHub Actions Verilator versions, but the release SRAM strategy is still unresolved.
 
 ## Remaining Verification Gaps
 

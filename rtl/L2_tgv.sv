@@ -25,7 +25,9 @@ module L2_tgv#(
   always @ (posedge clk) begin
     if (rst) begin
       for (mem_index = 0; mem_index < (2**ADDR_WIDTH); mem_index = mem_index + 1) begin
-        ram_block[mem_index] <= {DATA_WIDTH{1'b0}};
+        /* verilator lint_off BLKSEQ */
+        ram_block[mem_index] = {DATA_WIDTH{1'b0}};
+        /* verilator lint_on BLKSEQ */
       end
       read_data_p1 <= {DATA_WIDTH{1'b0}};
       read_data_p2 <= {DATA_WIDTH{1'b0}};
