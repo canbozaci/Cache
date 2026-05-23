@@ -1,0 +1,6 @@
+sim/build/
+obj_dir/
+*.vcd
+*.fst
+*.log
+.DS_Store
