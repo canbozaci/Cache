@@ -41,6 +41,7 @@ Behaviorally verified by smoke and scoreboard:
 - `DATA_WIDTH=32`
 - `MEM_DATA_WIDTH=64`
 - `LINE_WIDTH=256`
+- ready-stalled native memory using the default widths
 - `ADDR_WIDTH=20`, `DATA_WIDTH=32`
 - `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`

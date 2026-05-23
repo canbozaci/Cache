@@ -17,9 +17,29 @@ rtl/                     All synthesizable cache RTL
 
 - Instruction side: valid plus byte address, returning raw 32-bit fetch data.
 - Data side: read/write command, byte address, raw write data, byte write strobes, and raw read data.
-- Memory side: native 32-bit read/write interface for line fills and write-through traffic.
+- Memory side: single-clock native request/response interface for line fills and write-through traffic.
+- Maintenance side: idle-only flush and invalidate requests.
 
 The cache does not consume ISA-specific load/store encoding values and does not perform sign extension.
+
+The cache has one clock, `clk`. External memory can run at any frequency, but clock crossing is not part of the generic cache. A memory adaptor must bridge the native cache memory interface into the target memory clock domain, using an async FIFO or another CDC structure when needed.
+
+The native memory request channel is:
+
+- `mem_req_valid`
+- `mem_req_ready`
+- `mem_req_write`
+- `mem_req_addr`
+- `mem_req_wdata`
+- `mem_req_wstrb`
+
+The native memory response channel is:
+
+- `mem_rsp_valid`
+- `mem_rsp_ready`
+- `mem_rsp_rdata`
+
+Writes complete when the request is accepted. Reads complete when the response is valid.
 
 `cache` can be checked without any CPU adapter:
 
@@ -29,7 +49,7 @@ make compile-cache
 
 ## Parameter Contract
 
-The public top exposes `ADDR_WIDTH`, `DATA_WIDTH`, `MEM_DATA_WIDTH`, and `LINE_WIDTH`. Today these parameters document the intended generic boundary, but only the default configuration is supported by the full RTL and verification:
+The public top exposes `ADDR_WIDTH`, `DATA_WIDTH`, `MEM_DATA_WIDTH`, and `LINE_WIDTH`. The current verified matrix is documented in `docs/PARAMETERS.md`; it includes the default configuration plus selected single-parameter and combined non-default configurations:
 
 - `ADDR_WIDTH = 19`
 - `DATA_WIDTH = 64`

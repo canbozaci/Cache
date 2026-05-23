@@ -11,6 +11,7 @@ module cache_memory_model #(
     input  [DATA_WIDTH-1:0]   write_data,
     input  [(DATA_WIDTH/8)-1:0] write_strobe,
     input  read_enable,
+    input  ready,
     output reg [DATA_WIDTH-1:0] read_data
 );
 
@@ -37,12 +38,12 @@ module cache_memory_model #(
         if (!rst_ni) begin
             read_data <= {DATA_WIDTH{1'b0}};
         end else begin
-            if (read_enable) begin
+            if (read_enable && ready) begin
                 read_data <= memory_q[read_addr];
             end
 
             for (byte_index = 0; byte_index < BYTE_COUNT; byte_index = byte_index + 1) begin
-                if (write_strobe[byte_index]) begin
+                if (ready && write_strobe[byte_index]) begin
                     memory_q[write_addr][byte_index*8 +: 8] <= write_data[byte_index*8 +: 8];
                 end
             end

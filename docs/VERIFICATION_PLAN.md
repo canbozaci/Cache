@@ -20,6 +20,8 @@ The scoreboard keeps an independent byte-addressed reference memory initialized 
 - Byte, word, and unaligned multi-beat write-through behavior.
 - Repeated hit reads after writes.
 - Simultaneous instruction and data requests.
+- Native memory request wait states.
+- Runtime maintenance flush and invalidate handshakes.
 
 `make verify` runs `make check`, `make scoreboard`, and `make parameter-compile`.
 
@@ -30,6 +32,7 @@ Current scoreboard configurations:
 - `DATA_WIDTH=32`
 - `MEM_DATA_WIDTH=64`
 - `LINE_WIDTH=256`
+- ready-stalled native memory
 - `ADDR_WIDTH=20`, `DATA_WIDTH=32`
 - `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
@@ -57,7 +60,7 @@ The scoreboard is expected to pass as part of `make verify`.
 Known areas not yet covered:
 
 - Instruction/data L1 coherency after data writes to instruction addresses.
-- Native memory backpressure or variable latency.
+- Broader native memory response-latency patterns.
 - Combined non-default parameter sweeps outside the current scoreboard matrix.
 - Protocol assertions.
 

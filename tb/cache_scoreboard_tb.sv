@@ -6,14 +6,17 @@ module cache_scoreboard_tb #(
     parameter MEM_DATA_WIDTH = 32,
     parameter LINE_WIDTH = 128,
     parameter RAM_ADDR_WIDTH = 17,
-    parameter REF_BYTES = 4096
+    parameter REF_BYTES = 4096,
+    parameter MEM_READY_STALLS = 0
 ) ();
     localparam REF_WORDS = REF_BYTES / 4;
     localparam MEM_ADDR_LSB = (MEM_DATA_WIDTH == 64) ? 3 : 2;
 
     reg clk;
-    reg mem_clk;
     reg rst;
+    reg maint_flush_req;
+    reg maint_invalidate_req;
+    reg [1:0] mem_ready_counter;
 
     reg instr_req_valid;
     reg data_req_read;
@@ -25,13 +28,18 @@ module cache_scoreboard_tb #(
 
     wire [31:0] instr_resp_data;
     wire [DATA_WIDTH-1:0] data_resp_rdata;
-    wire [MEM_DATA_WIDTH-1:0] mem_rdata;
-    wire [MEM_DATA_WIDTH-1:0] mem_wdata;
-    wire [31:0] mem_read_addr;
-    wire [31:0] mem_write_addr;
-    wire mem_read;
-    wire [(MEM_DATA_WIDTH/8)-1:0] mem_wstrb;
-    wire mem_write;
+    wire [MEM_DATA_WIDTH-1:0] mem_rsp_rdata;
+    wire [MEM_DATA_WIDTH-1:0] mem_req_wdata;
+    wire [31:0] mem_req_addr;
+    wire mem_req_valid;
+    wire mem_req_ready;
+    wire mem_req_write;
+    wire [(MEM_DATA_WIDTH/8)-1:0] mem_req_wstrb;
+    wire mem_rsp_ready;
+    reg mem_rsp_valid;
+    wire maint_ready;
+    wire maint_done;
+    wire maint_error;
     wire busy;
 
     reg [7:0] reference_memory [0:REF_BYTES-1];
@@ -40,18 +48,21 @@ module cache_scoreboard_tb #(
     integer reference_byte_index;
     reg [31:0] reference_word_value;
 
+    assign mem_req_ready = (MEM_READY_STALLS == 0) ? 1'b1 : (mem_ready_counter != 2'd1);
+
     cache_memory_model #(
         .ADDR_WIDTH(RAM_ADDR_WIDTH),
         .DATA_WIDTH(MEM_DATA_WIDTH)
     ) main_memory (
-        .clk(mem_clk),
+        .clk(clk),
         .rst_ni(~rst),
-        .write_addr(mem_write_addr[RAM_ADDR_WIDTH+MEM_ADDR_LSB-1:MEM_ADDR_LSB]),
-        .read_addr(mem_read_addr[RAM_ADDR_WIDTH+MEM_ADDR_LSB-1:MEM_ADDR_LSB]),
-        .write_data(mem_wdata),
-        .write_strobe(mem_wstrb),
-        .read_enable(mem_read),
-        .read_data(mem_rdata)
+        .write_addr(mem_req_addr[RAM_ADDR_WIDTH+MEM_ADDR_LSB-1:MEM_ADDR_LSB]),
+        .read_addr(mem_req_addr[RAM_ADDR_WIDTH+MEM_ADDR_LSB-1:MEM_ADDR_LSB]),
+        .write_data(mem_req_wdata),
+        .write_strobe(mem_req_write ? mem_req_wstrb : {(MEM_DATA_WIDTH/8){1'b0}}),
+        .read_enable(mem_req_valid && mem_req_ready && !mem_req_write),
+        .ready(1'b1),
+        .read_data(mem_rsp_rdata)
     );
 
     cache #(
@@ -61,7 +72,6 @@ module cache_scoreboard_tb #(
         .LINE_WIDTH(LINE_WIDTH)
     ) dut (
         .clk(clk),
-        .mem_clk(mem_clk),
         .rst(rst),
         .instr_req_valid(instr_req_valid),
         .instr_req_addr(instr_req_addr),
@@ -72,23 +82,43 @@ module cache_scoreboard_tb #(
         .data_req_wdata(data_req_wdata),
         .data_req_wstrb(data_req_wstrb),
         .data_resp_rdata(data_resp_rdata),
-        .mem_rdata(mem_rdata),
-        .mem_wdata(mem_wdata),
-        .mem_read_addr(mem_read_addr),
-        .mem_write_addr(mem_write_addr),
-        .mem_read(mem_read),
-        .mem_wstrb(mem_wstrb),
-        .mem_write(mem_write),
+        .mem_req_valid(mem_req_valid),
+        .mem_req_ready(mem_req_ready),
+        .mem_req_write(mem_req_write),
+        .mem_req_addr(mem_req_addr),
+        .mem_req_wdata(mem_req_wdata),
+        .mem_req_wstrb(mem_req_wstrb),
+        .mem_rsp_valid(mem_rsp_valid),
+        .mem_rsp_ready(mem_rsp_ready),
+        .mem_rsp_rdata(mem_rsp_rdata),
+        .maint_flush_req(maint_flush_req),
+        .maint_invalidate_req(maint_invalidate_req),
+        .maint_ready(maint_ready),
+        .maint_done(maint_done),
+        .maint_error(maint_error),
         .busy(busy)
     );
 
     always #6.25 clk = ~clk;
-    always #6.25 mem_clk = ~mem_clk;
+
+    always @(posedge clk) begin
+        if (rst) begin
+            mem_ready_counter <= 2'b0;
+            mem_rsp_valid <= 1'b0;
+        end else begin
+            mem_ready_counter <= mem_ready_counter + 2'd1;
+            if (mem_rsp_ready) begin
+                mem_rsp_valid <= mem_req_valid && mem_req_ready && !mem_req_write;
+            end
+        end
+    end
 
     initial begin
         initialize_reference_memory();
         initialize_signals();
         reset_dut();
+
+        check_maintenance_contract();
 
         expect_data_read(19'h00000, "data cold line 0 word 0");
         expect_data_read(19'h00004, "data hit line 0 word 1");
@@ -130,8 +160,11 @@ module cache_scoreboard_tb #(
     task initialize_signals;
     begin
         clk = 1'b1;
-        mem_clk = 1'b1;
         rst = 1'b1;
+        maint_flush_req = 1'b0;
+        maint_invalidate_req = 1'b0;
+        mem_ready_counter = 2'b0;
+        mem_rsp_valid = 1'b0;
         instr_req_valid = 1'b0;
         data_req_read = 1'b0;
         data_req_write = 1'b0;
@@ -140,6 +173,37 @@ module cache_scoreboard_tb #(
         data_req_wdata = {DATA_WIDTH{1'b0}};
         data_req_wstrb = {(DATA_WIDTH/8){1'b0}};
         error_count = 0;
+    end
+    endtask
+
+    task check_maintenance_contract;
+    begin
+        wait_for_idle("maintenance idle entry");
+
+        @(negedge clk);
+        maint_flush_req = 1'b1;
+        @(posedge clk);
+        @(posedge clk);
+        if (!maint_ready || !maint_done || maint_error) begin
+            $display("MAINT MISMATCH: flush ready=%0b done=%0b error=%0b",
+                     maint_ready, maint_done, maint_error);
+            error_count = error_count + 1;
+        end
+        @(negedge clk);
+        maint_flush_req = 1'b0;
+
+        @(negedge clk);
+        maint_invalidate_req = 1'b1;
+        @(posedge clk);
+        @(posedge clk);
+        if (!maint_ready || !maint_done || maint_error) begin
+            $display("MAINT MISMATCH: invalidate ready=%0b done=%0b error=%0b",
+                     maint_ready, maint_done, maint_error);
+            error_count = error_count + 1;
+        end
+        @(negedge clk);
+        maint_invalidate_req = 1'b0;
+        wait_for_idle("maintenance idle exit");
     end
     endtask
 
@@ -169,7 +233,7 @@ module cache_scoreboard_tb #(
     begin
         timeout_count = 0;
         repeat (2) @(posedge clk);
-        while (busy || mem_read || mem_write) begin
+        while (busy || mem_req_valid || mem_rsp_valid) begin
             @(posedge clk);
             timeout_count = timeout_count + 1;
             if (timeout_count > 1000) begin

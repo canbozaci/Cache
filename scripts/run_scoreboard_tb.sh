@@ -17,6 +17,7 @@ run_case "dw32" -P cache_scoreboard_tb.DATA_WIDTH=32
 run_case "mem64" -P cache_scoreboard_tb.MEM_DATA_WIDTH=64
 run_case "line256" -P cache_scoreboard_tb.LINE_WIDTH=256
 run_case "addr20" -P cache_scoreboard_tb.ADDR_WIDTH=20
+run_case "ready_stalls" -P cache_scoreboard_tb.MEM_READY_STALLS=1
 run_case "addr20_dw32" \
   -P cache_scoreboard_tb.ADDR_WIDTH=20 \
   -P cache_scoreboard_tb.DATA_WIDTH=32
