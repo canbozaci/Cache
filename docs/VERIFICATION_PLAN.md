@@ -33,10 +33,12 @@ Current scoreboard configurations:
 - `MEM_DATA_WIDTH=64`
 - `LINE_WIDTH=256`
 - ready-stalled native memory
+- `DATA_WIDTH=128`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `DATA_WIDTH=32`
 - `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 - `DATA_WIDTH=32`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
+- `DATA_WIDTH=128`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 
 ## Parameter Compile Sweep
 
@@ -46,10 +48,12 @@ Current scoreboard configurations:
 - `DATA_WIDTH=32`
 - `MEM_DATA_WIDTH=64`
 - `LINE_WIDTH=256`
+- `DATA_WIDTH=128`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `DATA_WIDTH=32`
 - `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 - `DATA_WIDTH=32`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
+- `DATA_WIDTH=128`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 
 This is a compile/lint compatibility gate. Scoreboard covers the same single-parameter and combined width overrides listed above.
 
@@ -71,6 +75,6 @@ The current supported parameter set is documented in `docs/PARAMETERS.md`. Befor
 - A compile/lint sweep for the new parameter value.
 - A scoreboard run for at least one non-default cache geometry when the testbench supports it.
 - Directed tests for line-fill beat count, write-strobe width, address offset decode, and partial writes at line boundaries.
-- Directed tests for data widths above 64 bits after the public contract defines whether a request may cross a cache-line boundary.
+- Negative contract tests for adaptors that must split transfers crossing a cache-line boundary.
 
 The next design work should keep this scoreboard passing before simplifying controller wiring or changing cache internals.

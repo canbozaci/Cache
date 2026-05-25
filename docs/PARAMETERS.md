@@ -42,10 +42,12 @@ Behaviorally verified by smoke and scoreboard:
 - `MEM_DATA_WIDTH=64`
 - `LINE_WIDTH=256`
 - ready-stalled native memory using the default widths
+- `DATA_WIDTH=128`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `DATA_WIDTH=32`
 - `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 - `DATA_WIDTH=32`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
+- `DATA_WIDTH=128`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 
 Compile/lint swept by `make parameter-compile`:
 
@@ -54,10 +56,12 @@ Compile/lint swept by `make parameter-compile`:
 - `DATA_WIDTH=32`
 - `MEM_DATA_WIDTH=64`
 - `LINE_WIDTH=256`
+- `DATA_WIDTH=128`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `DATA_WIDTH=32`
 - `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 - `DATA_WIDTH=32`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
+- `DATA_WIDTH=128`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 
 The scoreboard runs prove the directed cache behaviors listed in `docs/VERIFICATION_PLAN.md` for the single-parameter overrides and combined non-default configurations above. Index-width changes are not proven yet.
 
@@ -70,6 +74,7 @@ The intended legal range is:
 - `DATA_WIDTH`, `MEM_DATA_WIDTH`, and `LINE_WIDTH` should be powers of two.
 - `LINE_WIDTH` must be an integer multiple of `MEM_DATA_WIDTH`.
 - `LINE_WIDTH` must be at least as wide as `DATA_WIDTH`.
+- A single data-side request must not cross a cache-line boundary. CPU adaptors must split any wider or unaligned transfer that would cross a line.
 - `L1_INDEX_WIDTH` and `L2_INDEX_WIDTH` must leave at least one tag bit.
 - `MEMORY_BASE_ADDR + cache-local address` must fit within the 32-bit native memory address output.
 
@@ -81,6 +86,6 @@ Specific remaining risks:
 
 - Fill sequencing now uses a derived memory-beat count and is tested for `MEM_DATA_WIDTH=64` and `LINE_WIDTH=256`.
 - Write-through sequencing now uses a derived memory-beat index and is tested for one-beat, two-beat, and three-beat directed writes in the current scoreboard matrix.
-- Wider `DATA_WIDTH` values above the current 64-bit default are not behaviorally supported until load/store line-boundary behavior is specified and tested.
+- `DATA_WIDTH=128` is behaviorally supported only for the documented `LINE_WIDTH=256` configurations, and only when each request stays within one cache line.
 - L1 and L2 replacement behavior is not yet swept across non-default index widths.
 - Combined non-default configurations outside the explicit scoreboard matrix above are not yet swept behaviorally.
