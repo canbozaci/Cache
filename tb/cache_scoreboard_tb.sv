@@ -214,6 +214,7 @@ module cache_scoreboard_tb #(
         expect_data_read(19'h00004, "data hit line 0 word 1");
         expect_data_read(19'h00008, "data hit line 0 word 2");
         check_line_maintenance_contract();
+        check_busy_maintenance_contract();
         expect_data_read(19'h00020, "data cold line 2 word 0");
 
         expect_instr_read(19'h00000, "instruction cold line 0 word 0");
@@ -281,25 +282,13 @@ module cache_scoreboard_tb #(
 
         @(negedge clk);
         maint_flush_req = 1'b1;
-        @(posedge clk);
-        @(posedge clk);
-        if (!maint_ready || !maint_done || maint_error) begin
-            $display("MAINT MISMATCH: flush ready=%0b done=%0b error=%0b",
-                     maint_ready, maint_done, maint_error);
-            error_count = error_count + 1;
-        end
+        wait_for_maintenance_success("global flush");
         @(negedge clk);
         maint_flush_req = 1'b0;
 
         @(negedge clk);
         maint_invalidate_req = 1'b1;
-        @(posedge clk);
-        @(posedge clk);
-        if (!maint_ready || !maint_done || maint_error) begin
-            $display("MAINT MISMATCH: invalidate ready=%0b done=%0b error=%0b",
-                     maint_ready, maint_done, maint_error);
-            error_count = error_count + 1;
-        end
+        wait_for_maintenance_success("global invalidate");
         @(negedge clk);
         maint_invalidate_req = 1'b0;
         wait_for_idle("maintenance idle exit");
@@ -362,13 +351,7 @@ module cache_scoreboard_tb #(
         maint_addr = addr;
         maint_addr_valid = 1'b1;
         maint_flush_line_req = 1'b1;
-        @(posedge clk);
-        @(posedge clk);
-        if (!maint_ready || !maint_done || maint_error) begin
-            $display("MAINT LINE MISMATCH: flush line ready=%0b done=%0b error=%0b",
-                     maint_ready, maint_done, maint_error);
-            error_count = error_count + 1;
-        end
+        wait_for_maintenance_success("line flush");
         @(negedge clk);
         maint_flush_line_req = 1'b0;
         maint_addr_valid = 1'b0;
@@ -386,18 +369,92 @@ module cache_scoreboard_tb #(
         maint_addr = addr;
         maint_addr_valid = 1'b1;
         maint_invalidate_line_req = 1'b1;
-        @(posedge clk);
-        @(posedge clk);
-        if (!maint_ready || !maint_done || maint_error) begin
-            $display("MAINT LINE MISMATCH: invalidate line ready=%0b done=%0b error=%0b",
-                     maint_ready, maint_done, maint_error);
-            error_count = error_count + 1;
-        end
+        wait_for_maintenance_success("line invalidate");
         @(negedge clk);
         maint_invalidate_line_req = 1'b0;
         maint_addr_valid = 1'b0;
         maint_addr = {ADDR_WIDTH{1'b0}};
         wait_for_idle(label);
+    end
+    endtask
+
+    task wait_for_maintenance_success;
+        input [1023:0] label;
+        integer timeout_count;
+    begin
+        timeout_count = 0;
+        @(posedge clk);
+        while (!maint_done && !maint_error) begin
+            @(posedge clk);
+            timeout_count = timeout_count + 1;
+            if (timeout_count > 1000) begin
+                $display("TIMEOUT: %0s maintenance did not complete", label);
+                error_count = error_count + 1;
+                disable wait_for_maintenance_success;
+            end
+        end
+        if (!maint_ready || !maint_done || maint_error) begin
+            $display("MAINT MISMATCH: %0s ready=%0b done=%0b error=%0b",
+                     label, maint_ready, maint_done, maint_error);
+            error_count = error_count + 1;
+        end
+    end
+    endtask
+
+    task check_busy_maintenance_contract;
+        integer reads_before;
+        integer reads_after;
+        integer timeout_count;
+    begin
+        wait_for_idle("busy maintenance idle entry");
+
+        @(negedge clk);
+        data_req_addr = NEXT_LINE_ADDR;
+        data_req_read = 1'b1;
+        data_req_write = 1'b0;
+        @(posedge clk);
+        @(posedge clk);
+
+        if (!busy) begin
+            $display("MAINT BUSY MISMATCH: expected data miss to make cache busy");
+            error_count = error_count + 1;
+        end
+
+        @(negedge clk);
+        maint_addr = {ADDR_WIDTH{1'b0}};
+        maint_addr_valid = 1'b1;
+        maint_invalidate_line_req = 1'b1;
+        @(posedge clk);
+        @(negedge clk);
+        maint_invalidate_line_req = 1'b0;
+        maint_addr_valid = 1'b0;
+        maint_addr = {ADDR_WIDTH{1'b0}};
+        data_req_read = 1'b0;
+
+        timeout_count = 0;
+        while (!maint_done && !maint_error) begin
+            @(posedge clk);
+            timeout_count = timeout_count + 1;
+            if (timeout_count > 1000) begin
+                $display("TIMEOUT: busy maintenance did not complete");
+                error_count = error_count + 1;
+                disable check_busy_maintenance_contract;
+            end
+        end
+
+        if (maint_error) begin
+            $display("MAINT BUSY MISMATCH: queued line invalidate returned error");
+            error_count = error_count + 1;
+        end
+
+        wait_for_idle("busy maintenance idle exit");
+        reads_before = mem_read_handshake_count;
+        expect_data_read({ADDR_WIDTH{1'b0}}, "busy maintenance refill after queued line invalidate");
+        reads_after = mem_read_handshake_count;
+        if (reads_after == reads_before) begin
+            $display("MAINT BUSY MISMATCH: queued line invalidate did not force refill");
+            error_count = error_count + 1;
+        end
     end
     endtask
 

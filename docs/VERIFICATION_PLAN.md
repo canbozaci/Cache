@@ -26,6 +26,7 @@ The scoreboard keeps an independent byte-addressed reference memory initialized 
 - Runtime global and address-selective line maintenance handshakes.
 - Address-selective line invalidate forcing a refill only for the targeted line.
 - Address-selective line flush as a write-through no-op.
+- Queued maintenance requests accepted while cache traffic is active.
 
 `make verify` runs `make check`, `make scoreboard`, and `make parameter-compile`.
 
@@ -71,7 +72,7 @@ Known areas not yet covered:
 
 - Instruction/data L1 coherency after data writes to instruction addresses.
 - Broader native memory response-latency patterns.
-- Maintenance error-condition tests for illegal request combinations.
+- Broader maintenance error-condition tests for illegal request combinations.
 - Memory-adaptor burst coalescing tests for bus-specific read and write burst encoding.
 - Combined non-default parameter sweeps outside the current scoreboard matrix.
 - Broader L1/L2 set-count sweeps beyond the current directed non-default case.

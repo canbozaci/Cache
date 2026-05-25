@@ -77,6 +77,10 @@ module cache #(
     reg maint_invalidate_pulse;
     reg maint_invalidate_line_pulse;
     reg [ADDR_WIDTH-1:0] maint_addr_q;
+    reg maint_pending;
+    reg maint_pending_error;
+    reg maint_pending_invalidate;
+    reg maint_pending_invalidate_line;
 
     wire [LINE_WIDTH-1:0] l2_write_block_p1;
     wire [LINE_WIDTH-1:0] l2_write_block_p2;
@@ -109,6 +113,7 @@ module cache #(
     wire instr_write_start;
     wire write_next;
     wire controller_busy;
+    wire cache_traffic_busy;
     wire unused_controller_outputs;
 
     wire write_l2;
@@ -129,6 +134,12 @@ module cache #(
     integer write_byte_index;
     integer write_source_byte_index;
     integer write_addr_delta;
+    wire maint_global_req;
+    wire maint_line_req;
+    wire maint_req;
+    wire maint_req_error;
+    wire maint_accept;
+    wire maint_execute;
 
     assign mem_req_valid = mem_read_internal | mem_write_internal;
     assign mem_req_write = mem_write_internal;
@@ -149,8 +160,18 @@ module cache #(
     assign l2_write_block_p1 = (mem_rsp_valid_q == 1'b1) ? {LINE_MEM_BEAT_COUNT{mem_rsp_rdata_q}} : l1_data_block;
     assign l2_write_block_p2 = {LINE_MEM_BEAT_COUNT{mem_rsp_rdata_q}};
     assign unused_controller_outputs = instr_write_start | write_next;
-    assign busy = controller_busy | (unused_controller_outputs & 1'b0);
-    assign maint_ready = ~busy;
+    assign cache_traffic_busy = controller_busy | (unused_controller_outputs & 1'b0);
+    assign busy = cache_traffic_busy | maint_pending;
+    assign maint_global_req = maint_flush_req | maint_invalidate_req;
+    assign maint_line_req = maint_flush_line_req | maint_invalidate_line_req;
+    assign maint_req = maint_global_req | maint_line_req;
+    assign maint_req_error = (maint_global_req & maint_line_req) |
+                             (maint_flush_req & maint_invalidate_req) |
+                             (maint_flush_line_req & maint_invalidate_line_req) |
+                             (maint_line_req & ~maint_addr_valid);
+    assign maint_accept = ~maint_pending & ~maint_done_q & maint_req;
+    assign maint_execute = maint_pending & ~cache_traffic_busy;
+    assign maint_ready = ~maint_pending | maint_execute;
     assign maint_done = maint_done_q;
     assign maint_error = maint_error_q;
     assign cache_array_rst = rst | maint_invalidate_pulse;
@@ -179,6 +200,10 @@ module cache #(
             maint_invalidate_pulse <= 1'b0;
             maint_invalidate_line_pulse <= 1'b0;
             maint_addr_q <= {ADDR_WIDTH{1'b0}};
+            maint_pending <= 1'b0;
+            maint_pending_error <= 1'b0;
+            maint_pending_invalidate <= 1'b0;
+            maint_pending_invalidate_line <= 1'b0;
             data_memory_fill_active <= 1'b0;
             instr_memory_fill_active <= 1'b0;
             data_memory_fill_block <= {LINE_WIDTH{1'b0}};
@@ -186,30 +211,20 @@ module cache #(
         end else begin
             mem_rsp_valid_q <= mem_rsp_valid;
             l1_data_hit_q <= l1_data_hit;
-            maint_done_q <= maint_ready &
-                            (maint_flush_req | maint_invalidate_req |
-                             maint_flush_line_req | maint_invalidate_line_req) &
-                            ~((maint_flush_req | maint_invalidate_req) &
-                              (maint_flush_line_req | maint_invalidate_line_req)) &
-                            ~(maint_flush_req & maint_invalidate_req) &
-                            ~(maint_flush_line_req & maint_invalidate_line_req) &
-                            ~((maint_flush_line_req | maint_invalidate_line_req) & ~maint_addr_valid);
-            maint_error_q <= maint_ready &
-                             (((maint_flush_req | maint_invalidate_req) &
-                               (maint_flush_line_req | maint_invalidate_line_req)) |
-                              (maint_flush_req & maint_invalidate_req) |
-                              (maint_flush_line_req & maint_invalidate_line_req) |
-                              ((maint_flush_line_req | maint_invalidate_line_req) & ~maint_addr_valid));
-            maint_invalidate_pulse <= maint_ready & maint_invalidate_req & ~maint_flush_req &
-                                      ~(maint_flush_line_req | maint_invalidate_line_req);
-            maint_invalidate_line_pulse <= maint_ready & ~maint_done_q & maint_invalidate_line_req &
-                                           maint_addr_valid & ~maint_flush_line_req &
-                                           ~(maint_flush_req | maint_invalidate_req);
-            if (maint_ready & ~maint_done_q & maint_addr_valid &
-                (maint_flush_line_req | maint_invalidate_line_req) &
-                ~(maint_flush_line_req & maint_invalidate_line_req) &
-                ~(maint_flush_req | maint_invalidate_req)) begin
-                maint_addr_q <= maint_addr;
+            maint_done_q <= maint_execute & ~maint_pending_error;
+            maint_error_q <= maint_execute & maint_pending_error;
+            maint_invalidate_pulse <= maint_execute & ~maint_pending_error & maint_pending_invalidate;
+            maint_invalidate_line_pulse <= maint_execute & ~maint_pending_error & maint_pending_invalidate_line;
+            if (maint_execute) begin
+                maint_pending <= 1'b0;
+            end else if (maint_accept) begin
+                maint_pending <= 1'b1;
+                maint_pending_error <= maint_req_error;
+                maint_pending_invalidate <= maint_invalidate_req & ~maint_req_error;
+                maint_pending_invalidate_line <= maint_invalidate_line_req & ~maint_req_error;
+                if (maint_addr_valid) begin
+                    maint_addr_q <= maint_addr;
+                end
             end
             if (mem_rsp_valid) begin
                 mem_rsp_rdata_q <= mem_rsp_rdata;

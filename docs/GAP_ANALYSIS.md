@@ -24,7 +24,8 @@
 - The scoreboard now covers one-beat, two-beat, and unaligned three-beat write-through cases across the current width matrix.
 - The scoreboard includes a ready-stall memory run.
 - Runtime global flush is defined as a write-through no-op, and runtime global invalidate clears the cache arrays while idle.
-- Address-selective line flush/invalidate is implemented for idle maintenance; line flush is a write-through no-op, and line invalidate clears matching tag/valid entries in L1 data, L1 instruction, and L2.
+- Maintenance requests use a single-entry queue and may be accepted while cache traffic is active.
+- Address-selective line flush/invalidate is implemented; line flush is a write-through no-op, and line invalidate clears matching tag/valid entries in L1 data, L1 instruction, and L2.
 
 ## Remaining Design Gaps
 
@@ -34,7 +35,7 @@
 - CDC is intentionally outside the generic cache; asynchronous clock crossing must be implemented in a memory adaptor.
 - Bus-specific burst semantics are not implemented in the cache; adaptors must translate generic burst metadata into the target bus protocol.
 - Instruction and data L1 caches are not coherent with each other after data-side writes.
-- Maintenance is still idle-only; maintenance during active cache traffic is not implemented.
+- Maintenance queue depth is one; back-to-back software maintenance streams require external request pacing.
 - ASIC SRAM macro replacement wrappers and read/write behavior assumptions are not defined.
 
 ## Remaining Verification Gaps
@@ -45,7 +46,7 @@
 - Replacement, eviction, same-index dual-port, and write-through corner cases need focused tests.
 - There are no block-level self-checking tests for arrays, replacement modules, load/store helpers, or controller subflows.
 - Native memory verification has a ready-stall run, but does not yet cover broad response-latency patterns.
-- Maintenance line flush/invalidate is covered for directed cases, but illegal request combinations need dedicated negative tests.
+- Maintenance line flush/invalidate and one busy-traffic queued request are covered for directed cases, but illegal request combinations need dedicated negative tests.
 - Generic line-fill and write-through burst metadata are checked by the scoreboard, but bus-specific burst coalescing must be verified in memory-adaptor repositories.
 - Reset-during-transaction and repeated-reset scenarios are not covered.
 - Assertions and functional coverage are missing.

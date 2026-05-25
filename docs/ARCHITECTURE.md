@@ -18,7 +18,7 @@ rtl/                     All synthesizable cache RTL
 - Instruction side: valid plus byte address, returning raw 32-bit fetch data.
 - Data side: read/write command, byte address, raw write data, byte write strobes, and raw read data.
 - Memory side: single-clock native request/response interface for line fills and write-through traffic.
-- Maintenance side: idle-only global and address-selective line flush/invalidate requests.
+- Maintenance side: queued global and address-selective line flush/invalidate requests.
 
 The cache does not consume ISA-specific load/store encoding values and does not perform sign extension.
 
@@ -58,7 +58,7 @@ The maintenance channel is:
 - `maint_done`
 - `maint_error`
 
-Maintenance operations are accepted only while `maint_ready` is high. Global invalidate clears cache valid state. Global flush is a no-op because the cache is write-through. Address-selective line invalidate clears matching tag/valid entries for `maint_addr` in L1 data, L1 instruction, and L2. Address-selective line flush is also a write-through no-op. Global and line requests must not be asserted together; line requests require `maint_addr_valid`.
+The cache has a single-entry maintenance queue. A maintenance request can be accepted while cache traffic is active when `maint_ready` is high. If accepted during active traffic, the operation is held until current cache traffic drains, then `maint_done` or `maint_error` pulses. `busy` remains high while a maintenance operation is queued. Global invalidate clears cache valid state. Global flush is a no-op because the cache is write-through. Address-selective line invalidate clears matching tag/valid entries for `maint_addr` in L1 data, L1 instruction, and L2. Address-selective line flush is also a write-through no-op. Global and line requests must not be asserted together; line requests require `maint_addr_valid`.
 
 The native cache memory interface is beat-based with burst metadata:
 
