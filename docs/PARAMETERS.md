@@ -52,7 +52,9 @@ Behaviorally verified by smoke and scoreboard:
 - `MEM_DATA_WIDTH=64`
 - `LINE_WIDTH=256`
 - `L1_SET_COUNT=32`, `L2_SET_COUNT=128`
+- `L1_SET_COUNT=16`, `L2_SET_COUNT=64`
 - `L1_DATA_SET_COUNT=32`, `L1_INSTR_SET_COUNT=64`, `L2_SET_COUNT=128`
+- `L1_DATA_SET_COUNT=64`, `L1_INSTR_SET_COUNT=32`, `L2_SET_COUNT=128`
 - ready-stalled native memory using the default widths
 - `DATA_WIDTH=128`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `DATA_WIDTH=32`
@@ -60,6 +62,8 @@ Behaviorally verified by smoke and scoreboard:
 - `ADDR_WIDTH=20`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 - `DATA_WIDTH=32`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 - `DATA_WIDTH=128`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
+- `ADDR_WIDTH=20`, `DATA_WIDTH=32`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`, `L1_DATA_SET_COUNT=32`, `L1_INSTR_SET_COUNT=64`, `L2_SET_COUNT=128`
+- `DATA_WIDTH=128`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`, `L1_SET_COUNT=32`, `L2_SET_COUNT=128`
 
 Compile/lint swept by `make parameter-compile`:
 
@@ -69,15 +73,21 @@ Compile/lint swept by `make parameter-compile`:
 - `MEM_DATA_WIDTH=64`
 - `LINE_WIDTH=256`
 - `L1_SET_COUNT=32`, `L2_SET_COUNT=128`
+- `L1_SET_COUNT=16`, `L2_SET_COUNT=64`
 - `L1_DATA_SET_COUNT=32`, `L1_INSTR_SET_COUNT=64`, `L2_SET_COUNT=128`
+- `L1_DATA_SET_COUNT=64`, `L1_INSTR_SET_COUNT=32`, `L2_SET_COUNT=128`
 - `DATA_WIDTH=128`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `DATA_WIDTH=32`
 - `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 - `DATA_WIDTH=32`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 - `DATA_WIDTH=128`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
+- `ADDR_WIDTH=20`, `DATA_WIDTH=32`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`, `L1_DATA_SET_COUNT=32`, `L1_INSTR_SET_COUNT=64`, `L2_SET_COUNT=128`
+- `DATA_WIDTH=128`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`, `L1_SET_COUNT=32`, `L2_SET_COUNT=128`
 
-The scoreboard runs prove the directed cache behaviors listed in `docs/VERIFICATION_PLAN.md` for the single-parameter overrides and combined non-default configurations above. Index-width changes are not proven yet.
+The scoreboard runs prove the directed cache behaviors listed in `docs/VERIFICATION_PLAN.md` for the single-parameter overrides, set-count overrides, and combined non-default configurations above.
+
+`make random-scoreboard` also runs six time-seeded legal combinations from the same supported parameter families. The seed is printed and can be reproduced with `RANDOM_SEED=<seed>`.
 
 ## Legal Range Rules
 
@@ -102,5 +112,5 @@ Specific remaining risks:
 - Fill sequencing now uses a derived memory-beat count and is tested for `MEM_DATA_WIDTH=64` and `LINE_WIDTH=256`.
 - Write-through sequencing now uses a derived memory-beat index and is tested for one-beat, two-beat, and three-beat directed writes in the current scoreboard matrix.
 - `DATA_WIDTH=128` is behaviorally supported only for the documented `LINE_WIDTH=256` configurations, and only when each request stays within one cache line.
-- L1 and L2 replacement behavior is only lightly swept across non-default and split L1 set counts.
-- Combined non-default configurations outside the explicit scoreboard matrix above are not yet swept behaviorally.
+- L1 and L2 replacement behavior is only lightly swept beyond the documented non-default and split L1 set-count cases.
+- Configurations outside the explicit scoreboard matrix above are not advertised as behaviorally supported.

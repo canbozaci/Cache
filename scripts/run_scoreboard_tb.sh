@@ -19,9 +19,16 @@ run_case "line256" -P cache_scoreboard_tb.LINE_WIDTH=256
 run_case "set_counts" \
   -P cache_scoreboard_tb.L1_SET_COUNT=32 \
   -P cache_scoreboard_tb.L2_SET_COUNT=128
+run_case "small_set_counts" \
+  -P cache_scoreboard_tb.L1_SET_COUNT=16 \
+  -P cache_scoreboard_tb.L2_SET_COUNT=64
 run_case "split_l1_set_counts" \
   -P cache_scoreboard_tb.L1_DATA_SET_COUNT=32 \
   -P cache_scoreboard_tb.L1_INSTR_SET_COUNT=64 \
+  -P cache_scoreboard_tb.L2_SET_COUNT=128
+run_case "split_l1_set_counts_alt" \
+  -P cache_scoreboard_tb.L1_DATA_SET_COUNT=64 \
+  -P cache_scoreboard_tb.L1_INSTR_SET_COUNT=32 \
   -P cache_scoreboard_tb.L2_SET_COUNT=128
 run_case "dw128_line256" \
   -P cache_scoreboard_tb.DATA_WIDTH=128 \
@@ -48,3 +55,17 @@ run_case "dw128_mem64_line256" \
   -P cache_scoreboard_tb.DATA_WIDTH=128 \
   -P cache_scoreboard_tb.MEM_DATA_WIDTH=64 \
   -P cache_scoreboard_tb.LINE_WIDTH=256
+run_case "geometry_dw32_mem64_line256" \
+  -P cache_scoreboard_tb.ADDR_WIDTH=20 \
+  -P cache_scoreboard_tb.DATA_WIDTH=32 \
+  -P cache_scoreboard_tb.MEM_DATA_WIDTH=64 \
+  -P cache_scoreboard_tb.LINE_WIDTH=256 \
+  -P cache_scoreboard_tb.L1_DATA_SET_COUNT=32 \
+  -P cache_scoreboard_tb.L1_INSTR_SET_COUNT=64 \
+  -P cache_scoreboard_tb.L2_SET_COUNT=128
+run_case "geometry_dw128_mem64_line256" \
+  -P cache_scoreboard_tb.DATA_WIDTH=128 \
+  -P cache_scoreboard_tb.MEM_DATA_WIDTH=64 \
+  -P cache_scoreboard_tb.LINE_WIDTH=256 \
+  -P cache_scoreboard_tb.L1_SET_COUNT=32 \
+  -P cache_scoreboard_tb.L2_SET_COUNT=128
