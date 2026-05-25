@@ -8,7 +8,8 @@
 - CI is configured on GitHub Actions for the cleanup branch using a current checkout action.
 - `make verify` runs compile, lint/style, smoke simulation, twelve scoreboard configurations, and parameter compile sweep.
 - `cache` is single-clock; `mem_clk` has been removed from the public cache interface.
-- Native memory traffic uses a single-clock request/response interface with request ready and response valid handshakes.
+- Native memory traffic uses a single-clock, beat-based request/response interface with request ready and response valid handshakes.
+- Burst semantics are defined by exclusion at the cache boundary: the cache issues ordered single-beat transactions, and burst coalescing belongs in a memory adaptor.
 - Width plumbing derives byte-enable widths, data-side strobe width, memory-side strobe width, line byte count, L1 tag width, L2 tag width, and L2 address width from top-level parameters.
 - Line fill sequencing uses a derived `LINE_WIDTH / MEM_DATA_WIDTH` beat count instead of fixed four-beat controller states.
 - Write-through sequencing uses a derived write-beat index, memory-byte strobes generated per beat, `MEM_ADDR_STEP`, and line-offset based memory data selection.
@@ -24,7 +25,6 @@
 - Combined non-default configurations outside the current scoreboard matrix are not behaviorally swept.
 - Data widths above 128 bits are not release-supported yet.
 - The public cache timing contract is incomplete: request stability, response validity, and legal simultaneous command behavior need to be frozen.
-- The native memory side supports single-beat request/response handshakes, but burst semantics are not defined.
 - CDC is intentionally outside the generic cache; asynchronous clock crossing must be implemented in a memory adaptor.
 - Instruction and data L1 caches are not coherent with each other after data-side writes.
 - Maintenance is currently global idle-only flush/invalidate; address-selective line maintenance is not implemented.

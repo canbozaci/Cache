@@ -65,6 +65,7 @@ Known areas not yet covered:
 
 - Instruction/data L1 coherency after data writes to instruction addresses.
 - Broader native memory response-latency patterns.
+- Memory-adaptor burst coalescing tests; the generic cache boundary is single-beat only.
 - Combined non-default parameter sweeps outside the current scoreboard matrix.
 - Protocol assertions.
 

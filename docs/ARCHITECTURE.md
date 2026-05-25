@@ -41,6 +41,17 @@ The native memory response channel is:
 
 Writes complete when the request is accepted. Reads complete when the response is valid.
 
+The native cache memory interface is intentionally beat-based, not burst-based:
+
+- The cache issues at most one outstanding request.
+- Each `mem_req_valid && mem_req_ready` handshake transfers exactly one memory beat.
+- Read responses must return in request order.
+- Line fills are emitted as ordered, contiguous, line-aligned single-beat reads.
+- Write-through traffic is emitted as independent single-beat writes.
+- The generic cache does not expose burst length, burst type, lock, exclusive, or ID fields.
+
+Memory adaptors may coalesce contiguous cache read beats into a bus burst when the target bus supports it. That coalescing is an adaptor optimization and must preserve the cache-visible beat order and response contract.
+
 `cache` can be checked without any CPU adapter:
 
 ```sh
@@ -62,4 +73,4 @@ See `docs/PARAMETERS.md` for legal values, derived widths, unsupported combinati
 
 The CPU adaptor repository owns load/store formatting and CPU-facing port conventions.
 
-The memory adaptor repository is reserved for translating the generic cache native memory side into a SoC bus protocol once the native cache memory contract is frozen.
+The memory adaptor repository owns translation from the beat-based native cache memory side into a SoC bus protocol. It also owns any burst coalescing and CDC required by the target memory subsystem.
