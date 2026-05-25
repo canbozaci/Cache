@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-module cache_l1_data_way#(
+module cache_l1_memory_way#(
     parameter LINE_WIDTH = 128,
     parameter TAG_WIDTH = 9,
     parameter INDEX_WIDTH = 6,
@@ -19,11 +19,11 @@ module cache_l1_data_way#(
     output [TAG_WIDTH -1:0] tag
     );
 
-    cache_l1_data_array #(
+    cache_l1_memory_array #(
         .DATA_WIDTH(LINE_WIDTH),
         .ADDR_WIDTH(INDEX_WIDTH),
         .BYTE_COUNT(LINE_BYTE_COUNT)
-    ) cache_l1_data_arraya_inst( // module that holds data bits L1
+    ) cache_l1_memory_array_inst(
         .clk(clk),
         .we(we),
         .byte_enable(byte_enable),
@@ -32,11 +32,11 @@ module cache_l1_data_way#(
         .read_data(block_read)
     );
 
-    cache_l1_tag_valid_array #(
+    cache_l1_memory_tag_valid_array #(
         .DATA_WIDTH(TAG_WIDTH + 1),
         .ADDR_WIDTH(INDEX_WIDTH),
         .RAM_DEPTH(1 << INDEX_WIDTH)
-    ) cache_l1_tag_valid_array_inst( // module that holds the valid & data bits
+    ) cache_l1_memory_tag_valid_array_inst(
         .clk(clk),
         .rst(rst),
         .we(we),

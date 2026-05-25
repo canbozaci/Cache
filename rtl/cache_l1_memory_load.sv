@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-module cache_l1_data_load#(
+module cache_l1_memory_load#(
     parameter BYTE_OFFSET_WIDTH = 2,
     parameter WORD_OFFSET_WIDTH = 2,
     parameter LINE_WIDTH = 128,

@@ -1,9 +1,9 @@
-// Synthesizable single-port cache data array model.
+// Synthesizable single-port L1 cache line memory array model.
 // Words: 64
 // Word size: 128
 
-module cache_l1_data_array#(
-  parameter DATA_WIDTH = 128,// data size 128 bit = LINE SIZE
+module cache_l1_memory_array#(
+  parameter DATA_WIDTH = 128,// line size in bits
   parameter ADDR_WIDTH = 6,  // idx size (6 bits), log2(64) = 6 (64 = block no)
   parameter BYTE_COUNT = DATA_WIDTH / 8,
   parameter RAM_DEPTH = 1 << ADDR_WIDTH // 2^6 = 64 (depth)
@@ -31,4 +31,3 @@ module cache_l1_data_array#(
   end
 
   endmodule
-

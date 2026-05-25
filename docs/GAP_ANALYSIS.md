@@ -12,7 +12,7 @@
 - Native memory line-fill reads expose generic burst metadata: burst valid, total beat count, beat index, first beat, and last beat.
 - Multi-beat write-through traffic exposes the same generic burst metadata as line fills.
 - The generic cache still transfers one memory beat per handshake; bus-specific burst encoding and coalescing belong in a memory adaptor.
-- Internal RTL module and file names have been normalized to lowercase `cache_*` names.
+- Internal RTL module and file names have been normalized to lowercase `cache_*` names; shared L1 storage helpers use `cache_l1_memory_*` names to avoid implying data-cache-only ownership.
 - Public set geometry uses `L1_SET_COUNT` and `L2_SET_COUNT`; L1/L2 index widths are derived internally.
 - L1 and L2 way count is fixed at 2.
 - Width plumbing derives byte-enable widths, data-side strobe width, memory-side strobe width, line byte count, L1 tag width, L2 tag width, and L2 address width from top-level parameters.

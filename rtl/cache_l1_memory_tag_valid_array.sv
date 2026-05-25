@@ -1,8 +1,8 @@
-// Synthesizable single-port tag/valid array model.
+// Synthesizable single-port L1 cache tag/valid memory array model.
 // Words: 64
 // Word size: 128
 
-module cache_l1_tag_valid_array#(
+module cache_l1_memory_tag_valid_array#(
   parameter DATA_WIDTH = 10, // tag size (9 bits) + valid bit (1 bit)
   parameter ADDR_WIDTH = 6, // idx size (6 bits), log2(64) = 6 (64 = block no)
   parameter RAM_DEPTH = 1 << ADDR_WIDTH // 2^6 = 64 (depth)

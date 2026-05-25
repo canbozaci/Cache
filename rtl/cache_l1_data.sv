@@ -57,7 +57,7 @@ module cache_l1_data#( // L1 data cache top module
     assign hit = ((read | write) & (hit_s1 | hit_s2)) & (~rst);
     assign cache_set_output_select = ((read | write) & (hit_s2 & (~hit_s1)));
 
-    cache_l1_data_way#( // SET1
+    cache_l1_memory_way#( // SET1
         .LINE_WIDTH(LINE_WIDTH),
         .TAG_WIDTH(TAG_WIDTH),
         .INDEX_WIDTH(INDEX_WIDTH),
@@ -77,7 +77,7 @@ module cache_l1_data#( // L1 data cache top module
         .tag(tag_out_s1)
         );
 
-    cache_l1_data_way#( // SET2
+    cache_l1_memory_way#( // SET2
         .LINE_WIDTH(LINE_WIDTH),
         .TAG_WIDTH(TAG_WIDTH),
         .INDEX_WIDTH(INDEX_WIDTH),
@@ -148,26 +148,26 @@ module cache_l1_data#( // L1 data cache top module
         .data_block(data_block)
         );
 
-    cache_l1_data_load #(
+    cache_l1_memory_load #(
         .BYTE_OFFSET_WIDTH(BYTE_OFFSET_WIDTH),
         .WORD_OFFSET_WIDTH(WORD_OFFSET_WIDTH),
         .LINE_WIDTH(LINE_WIDTH),
         .DATA_WIDTH(DATA_WIDTH)
         )
-    cache_l1_data_load_inst(
+    cache_l1_memory_load_inst(
         .data_block(data_block),
         .offset(offset_input),
         .word(word_input),
         .data(data)
         );
 
-    cache_l1_data_store#(
+    cache_l1_memory_store#(
         .BYTE_OFFSET_WIDTH(BYTE_OFFSET_WIDTH),
         .WORD_OFFSET_WIDTH(WORD_OFFSET_WIDTH),
         .LINE_WIDTH(LINE_WIDTH),
         .DATA_WIDTH(DATA_WIDTH)
         )
-    cache_l1_data_store_inst(
+    cache_l1_memory_store_inst(
         .write_L2(write_L2),
         .data_L2(data_L2),
         .write_data(write_data),

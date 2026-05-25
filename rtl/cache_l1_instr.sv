@@ -53,7 +53,7 @@ module cache_l1_instr #(
     assign hit = read & (hit_s1 | hit_s2) & ~rst;
     assign cache_set_output_select = read & hit_s2 & ~hit_s1;
 
-    cache_l1_data_way #(
+    cache_l1_memory_way #(
         .LINE_WIDTH(LINE_WIDTH),
         .TAG_WIDTH(TAG_WIDTH),
         .INDEX_WIDTH(INDEX_WIDTH),
@@ -72,7 +72,7 @@ module cache_l1_instr #(
         .tag(tag_out_s1)
     );
 
-    cache_l1_data_way #(
+    cache_l1_memory_way #(
         .LINE_WIDTH(LINE_WIDTH),
         .TAG_WIDTH(TAG_WIDTH),
         .INDEX_WIDTH(INDEX_WIDTH),
@@ -138,7 +138,7 @@ module cache_l1_instr #(
         .data_block(data_block)
     );
 
-    cache_l1_data_load #(
+    cache_l1_memory_load #(
         .BYTE_OFFSET_WIDTH(BYTE_OFFSET_WIDTH),
         .WORD_OFFSET_WIDTH(WORD_OFFSET_WIDTH),
         .LINE_WIDTH(LINE_WIDTH),
