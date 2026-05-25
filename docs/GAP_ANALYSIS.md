@@ -9,7 +9,9 @@
 - `make verify` runs compile, lint/style, smoke simulation, twelve scoreboard configurations, and parameter compile sweep.
 - `cache` is single-clock; `mem_clk` has been removed from the public cache interface.
 - Native memory traffic uses a single-clock, beat-based request/response interface with request ready and response valid handshakes.
-- Burst semantics are defined by exclusion at the cache boundary: the cache issues ordered single-beat transactions, and burst coalescing belongs in a memory adaptor.
+- Native memory line-fill reads expose generic burst metadata: burst valid, total beat count, beat index, first beat, and last beat.
+- The generic cache still transfers one memory beat per handshake; bus-specific burst encoding and coalescing belong in a memory adaptor.
+- Write-through traffic is still marked as independent single-beat writes.
 - Width plumbing derives byte-enable widths, data-side strobe width, memory-side strobe width, line byte count, L1 tag width, L2 tag width, and L2 address width from top-level parameters.
 - Line fill sequencing uses a derived `LINE_WIDTH / MEM_DATA_WIDTH` beat count instead of fixed four-beat controller states.
 - Write-through sequencing uses a derived write-beat index, memory-byte strobes generated per beat, `MEM_ADDR_STEP`, and line-offset based memory data selection.
@@ -26,6 +28,8 @@
 - Data widths above 128 bits are not release-supported yet.
 - The public cache timing contract is incomplete: request stability, response validity, and legal simultaneous command behavior need to be frozen.
 - CDC is intentionally outside the generic cache; asynchronous clock crossing must be implemented in a memory adaptor.
+- Bus-specific burst semantics are not implemented in the cache; adaptors must translate generic burst metadata into the target bus protocol.
+- Write-through burst packing is not implemented.
 - Instruction and data L1 caches are not coherent with each other after data-side writes.
 - Maintenance is currently global idle-only flush/invalidate; address-selective line maintenance is not implemented.
 - ASIC SRAM macro replacement wrappers and read/write behavior assumptions are not defined.
@@ -39,6 +43,8 @@
 - Replacement, eviction, same-index dual-port, and write-through corner cases need focused tests.
 - There are no block-level self-checking tests for arrays, replacement modules, load/store helpers, or controller subflows.
 - Native memory verification has a ready-stall run, but does not yet cover broad response-latency patterns.
+- Generic line-fill burst metadata is checked by the scoreboard, but bus-specific burst coalescing must be verified in memory-adaptor repositories.
+- Write-through burst packing is not verified because the cache currently emits write-through beats as independent single-beat writes.
 - Reset-during-transaction and repeated-reset scenarios are not covered.
 - Assertions and functional coverage are missing.
 - Unsupported instruction/data coherency behavior is documented but not locked by a dedicated contract test.
@@ -59,6 +65,7 @@ P0 before first real version:
 - Add adaptor-side checks/tests that split data requests crossing a cache-line boundary.
 - Extend combined parameter scoreboard runs beyond the current matrix.
 - Write the public cache request/response and native memory timing contract as a dedicated integration document.
+- Add memory-adaptor tests that map generic line-fill burst metadata to real bus bursts.
 - Add focused replacement and eviction tests.
 - Define memory-adaptor CDC expectations for external memory clocks.
 

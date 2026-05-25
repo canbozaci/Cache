@@ -25,6 +25,11 @@ module cache_tb();
     wire mem_req_valid;
     wire mem_req_ready;
     wire mem_req_write;
+    wire mem_req_burst;
+    wire [7:0] mem_req_burst_len;
+    wire [7:0] mem_req_beat_index;
+    wire mem_req_burst_start;
+    wire mem_req_burst_last;
     wire [3:0] mem_req_wstrb;
     wire mem_rsp_ready;
     reg mem_rsp_valid;
@@ -62,6 +67,11 @@ module cache_tb();
         .mem_req_valid(mem_req_valid),
         .mem_req_ready(mem_req_ready),
         .mem_req_write(mem_req_write),
+        .mem_req_burst(mem_req_burst),
+        .mem_req_burst_len(mem_req_burst_len),
+        .mem_req_beat_index(mem_req_beat_index),
+        .mem_req_burst_start(mem_req_burst_start),
+        .mem_req_burst_last(mem_req_burst_last),
         .mem_req_addr(mem_req_addr),
         .mem_req_wdata(mem_req_wdata),
         .mem_req_wstrb(mem_req_wstrb),

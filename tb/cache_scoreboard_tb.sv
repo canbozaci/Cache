@@ -11,6 +11,19 @@ module cache_scoreboard_tb #(
 ) ();
     localparam REF_WORDS = REF_BYTES / 4;
     localparam MEM_ADDR_LSB = (MEM_DATA_WIDTH == 64) ? 3 : 2;
+    localparam LINE_MEM_BEAT_COUNT = LINE_WIDTH / MEM_DATA_WIDTH;
+    localparam [7:0] LINE_MEM_BEAT_COUNT_8 =
+        (LINE_MEM_BEAT_COUNT == 1)  ? 8'd1  :
+        (LINE_MEM_BEAT_COUNT == 2)  ? 8'd2  :
+        (LINE_MEM_BEAT_COUNT == 4)  ? 8'd4  :
+        (LINE_MEM_BEAT_COUNT == 8)  ? 8'd8  :
+        (LINE_MEM_BEAT_COUNT == 16) ? 8'd16 : 8'd32;
+    localparam [7:0] LINE_MEM_LAST_BEAT =
+        (LINE_MEM_BEAT_COUNT == 1)  ? 8'd0  :
+        (LINE_MEM_BEAT_COUNT == 2)  ? 8'd1  :
+        (LINE_MEM_BEAT_COUNT == 4)  ? 8'd3  :
+        (LINE_MEM_BEAT_COUNT == 8)  ? 8'd7  :
+        (LINE_MEM_BEAT_COUNT == 16) ? 8'd15 : 8'd31;
 
     reg clk;
     reg rst;
@@ -34,6 +47,11 @@ module cache_scoreboard_tb #(
     wire mem_req_valid;
     wire mem_req_ready;
     wire mem_req_write;
+    wire mem_req_burst;
+    wire [7:0] mem_req_burst_len;
+    wire [7:0] mem_req_beat_index;
+    wire mem_req_burst_start;
+    wire mem_req_burst_last;
     wire [(MEM_DATA_WIDTH/8)-1:0] mem_req_wstrb;
     wire mem_rsp_ready;
     reg mem_rsp_valid;
@@ -85,6 +103,11 @@ module cache_scoreboard_tb #(
         .mem_req_valid(mem_req_valid),
         .mem_req_ready(mem_req_ready),
         .mem_req_write(mem_req_write),
+        .mem_req_burst(mem_req_burst),
+        .mem_req_burst_len(mem_req_burst_len),
+        .mem_req_beat_index(mem_req_beat_index),
+        .mem_req_burst_start(mem_req_burst_start),
+        .mem_req_burst_last(mem_req_burst_last),
         .mem_req_addr(mem_req_addr),
         .mem_req_wdata(mem_req_wdata),
         .mem_req_wstrb(mem_req_wstrb),
@@ -109,6 +132,38 @@ module cache_scoreboard_tb #(
             mem_ready_counter <= mem_ready_counter + 2'd1;
             if (mem_rsp_ready) begin
                 mem_rsp_valid <= mem_req_valid && mem_req_ready && !mem_req_write;
+            end
+        end
+    end
+
+    always @(posedge clk) begin
+        if (!rst && mem_req_valid && mem_req_ready) begin
+            if (mem_req_write) begin
+                if (mem_req_burst || (mem_req_burst_len != 8'd1) || (mem_req_beat_index != 8'd0) ||
+                    mem_req_burst_start || mem_req_burst_last) begin
+                    $display("BURST MISMATCH: write metadata burst=%0b len=%0d beat=%0d start=%0b last=%0b",
+                             mem_req_burst, mem_req_burst_len, mem_req_beat_index,
+                             mem_req_burst_start, mem_req_burst_last);
+                    error_count = error_count + 1;
+                end
+            end else if (LINE_MEM_BEAT_COUNT == 1) begin
+                if (mem_req_burst || (mem_req_burst_len != 8'd1) || (mem_req_beat_index != 8'd0) ||
+                    mem_req_burst_start || mem_req_burst_last) begin
+                    $display("BURST MISMATCH: single-beat read metadata burst=%0b len=%0d beat=%0d start=%0b last=%0b",
+                             mem_req_burst, mem_req_burst_len, mem_req_beat_index,
+                             mem_req_burst_start, mem_req_burst_last);
+                    error_count = error_count + 1;
+                end
+            end else begin
+                if (!mem_req_burst || (mem_req_burst_len != LINE_MEM_BEAT_COUNT_8) ||
+                    (mem_req_beat_index > LINE_MEM_LAST_BEAT) ||
+                    (mem_req_burst_start != (mem_req_beat_index == 8'd0)) ||
+                    (mem_req_burst_last != (mem_req_beat_index == LINE_MEM_LAST_BEAT))) begin
+                    $display("BURST MISMATCH: read metadata burst=%0b len=%0d beat=%0d start=%0b last=%0b",
+                             mem_req_burst, mem_req_burst_len, mem_req_beat_index,
+                             mem_req_burst_start, mem_req_burst_last);
+                    error_count = error_count + 1;
+                end
             end
         end
     end

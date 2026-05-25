@@ -40,6 +40,7 @@ module Cache_controller #(
         output [MEM_DATA_WIDTH-1:0] ram_data,
         output [31:0] ram_read_addr,
         output [31:0] ram_write_addr,
+        output [7:0] ram_read_beat_index,
         output reg ram_read,
         output miss,
         output ram_write_start,
@@ -171,6 +172,7 @@ module Cache_controller #(
     assign ram_write_start = ram_write_start_instr | ram_write_start_data;
     assign line_addr_mask = {ADDR_WIDTH{1'b1}} << LINE_OFFSET_WIDTH;
     assign main_mem_read_beat_ack = transfer_data_step1 | transfer_instr_step1;
+    assign ram_read_beat_index = main_mem_read_beat_index;
     //
 
     always @(*) begin

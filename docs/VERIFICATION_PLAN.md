@@ -21,6 +21,7 @@ The scoreboard keeps an independent byte-addressed reference memory initialized 
 - Repeated hit reads after writes.
 - Simultaneous instruction and data requests.
 - Native memory request wait states.
+- Native memory line-fill burst metadata.
 - Runtime maintenance flush and invalidate handshakes.
 
 `make verify` runs `make check`, `make scoreboard`, and `make parameter-compile`.
@@ -65,7 +66,8 @@ Known areas not yet covered:
 
 - Instruction/data L1 coherency after data writes to instruction addresses.
 - Broader native memory response-latency patterns.
-- Memory-adaptor burst coalescing tests; the generic cache boundary is single-beat only.
+- Memory-adaptor burst coalescing tests for bus-specific burst encoding.
+- Write-through burst packing tests; the generic cache currently marks writes as single-beat traffic.
 - Combined non-default parameter sweeps outside the current scoreboard matrix.
 - Protocol assertions.
 
