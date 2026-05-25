@@ -25,7 +25,7 @@ For the stronger self-checking cache scoreboard:
 make scoreboard
 ```
 
-`make verify` runs the baseline check, the scoreboard, and a compile-only parameter sweep. It is the preferred regression command before RTL changes are considered done.
+`make verify` runs the baseline check, directed scoreboard configurations, seeded random scoreboard configurations, block tests, and a compile-only parameter sweep. It is the preferred regression command before RTL changes are considered done.
 
 To elaborate only the reusable cache top:
 
@@ -55,4 +55,4 @@ Memory-side bus adaptation belongs outside this repository in a memory-side adap
 
 See `docs/GAP_ANALYSIS.md` for current design, verification, documentation, and architecture gaps.
 
-The current parameter contract is documented in `docs/PARAMETERS.md`. The top-level exposes width parameters, but only the default configuration is supported until the controller and verification are generalized.
+The current parameter contract is documented in `docs/PARAMETERS.md`. The public timing and integration contract is documented in `docs/TIMING_CONTRACT.md`.
