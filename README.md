@@ -11,7 +11,7 @@ This repository contains the generic cache IP only. CPU-side protocol adaptation
 - Single cache clock.
 - Non-coherent instruction/data L1 behavior. Software or integration logic must invalidate affected instruction lines before fetching data-side writes as instructions.
 - Write-through data writes.
-- Blocking command-style CPU-side interface using `busy` as the cache-level back-pressure signal.
+- Blocking ready/valid CPU-side request and response interface with per-port backpressure.
 - Native beat-based memory request/response interface with ready/valid handshakes and generic burst metadata.
 - External CPU and memory adaptors; no ISA-specific or bus-specific adaptor is built into this repository.
 

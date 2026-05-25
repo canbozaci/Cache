@@ -16,7 +16,12 @@ module cache_scoreboard_tb #(
     parameter REF_BYTES = 16384,
     parameter MEM_READY_STALLS = 0,
     parameter MEM_RSP_EXTRA_LATENCY = 0,
-    parameter MEM_RSP_VARIABLE_LATENCY = 0
+    parameter MEM_RSP_VARIABLE_LATENCY = 0,
+    parameter integer MEM_RD_ERROR_BEAT = -1,
+    parameter MEM_WR_ERROR_ENABLE = 0,
+    parameter MEM_WR_RSP_EXTRA_LATENCY = 0,
+    parameter INSTR_RSP_BACKPRESSURE = 0,
+    parameter DATA_RSP_BACKPRESSURE = 0
 ) ();
     localparam REF_WORDS = REF_BYTES / 4;
     localparam MEM_ADDR_LSB = (MEM_DATA_WIDTH == 64) ? 3 : 2;
@@ -47,20 +52,32 @@ module cache_scoreboard_tb #(
     reg [ADDR_WIDTH-1:0] maint_addr;
     reg [1:0] mem_ready_counter;
     reg mem_rsp_pending;
+    reg mem_rsp_pending_error;
     integer mem_rsp_countdown;
     integer mem_rsp_latency_value;
+    reg mem_wr_rsp_pending;
+    reg mem_wr_rsp_pending_error;
+    integer mem_wr_rsp_countdown;
 
     reg instr_req_valid;
-    reg data_req_read;
+    reg instr_rsp_ready;
+    reg data_req_valid;
     reg data_req_write;
+    reg data_rsp_ready;
     reg [ADDR_WIDTH-1:0] instr_req_addr;
     reg [ADDR_WIDTH-1:0] data_req_addr;
     reg [DATA_WIDTH-1:0] data_req_wdata;
     reg [(DATA_WIDTH/8)-1:0] data_req_wstrb;
 
-    wire [31:0] instr_resp_data;
-    wire [DATA_WIDTH-1:0] data_resp_rdata;
-    wire [MEM_DATA_WIDTH-1:0] mem_rsp_rdata;
+    wire instr_req_ready;
+    wire instr_rsp_valid;
+    wire [31:0] instr_rsp_data;
+    wire instr_rsp_error;
+    wire data_req_ready;
+    wire data_rsp_valid;
+    wire [DATA_WIDTH-1:0] data_rsp_rdata;
+    wire data_rsp_error;
+    wire [MEM_DATA_WIDTH-1:0] mem_rd_rsp_rdata;
     wire [MEM_DATA_WIDTH-1:0] mem_req_wdata;
     wire [31:0] mem_req_addr;
     wire mem_req_valid;
@@ -72,12 +89,15 @@ module cache_scoreboard_tb #(
     wire mem_req_burst_start;
     wire mem_req_burst_last;
     wire [(MEM_DATA_WIDTH/8)-1:0] mem_req_wstrb;
-    wire mem_rsp_ready;
-    reg mem_rsp_valid;
+    wire mem_rd_rsp_ready;
+    reg mem_rd_rsp_valid;
+    reg mem_rd_rsp_error;
+    wire mem_wr_rsp_ready;
+    reg mem_wr_rsp_valid;
+    reg mem_wr_rsp_error;
     wire maint_ready;
     wire maint_done;
     wire maint_error;
-    wire busy;
 
     reg [7:0] reference_memory [0:REF_BYTES-1];
     integer error_count;
@@ -103,7 +123,7 @@ module cache_scoreboard_tb #(
         .write_strobe(mem_req_write ? mem_req_wstrb : {(MEM_DATA_WIDTH/8){1'b0}}),
         .read_enable(mem_req_valid && mem_req_ready && !mem_req_write),
         .ready(1'b1),
-        .read_data(mem_rsp_rdata)
+        .read_data(mem_rd_rsp_rdata)
     );
 
     cache #(
@@ -119,14 +139,22 @@ module cache_scoreboard_tb #(
         .clk(clk),
         .rst(rst),
         .instr_req_valid(instr_req_valid),
+        .instr_req_ready(instr_req_ready),
         .instr_req_addr(instr_req_addr),
-        .instr_resp_data(instr_resp_data),
-        .data_req_read(data_req_read),
+        .instr_rsp_valid(instr_rsp_valid),
+        .instr_rsp_ready(instr_rsp_ready),
+        .instr_rsp_data(instr_rsp_data),
+        .instr_rsp_error(instr_rsp_error),
+        .data_req_valid(data_req_valid),
+        .data_req_ready(data_req_ready),
         .data_req_write(data_req_write),
         .data_req_addr(data_req_addr),
         .data_req_wdata(data_req_wdata),
         .data_req_wstrb(data_req_wstrb),
-        .data_resp_rdata(data_resp_rdata),
+        .data_rsp_valid(data_rsp_valid),
+        .data_rsp_ready(data_rsp_ready),
+        .data_rsp_rdata(data_rsp_rdata),
+        .data_rsp_error(data_rsp_error),
         .mem_req_valid(mem_req_valid),
         .mem_req_ready(mem_req_ready),
         .mem_req_write(mem_req_write),
@@ -138,9 +166,13 @@ module cache_scoreboard_tb #(
         .mem_req_addr(mem_req_addr),
         .mem_req_wdata(mem_req_wdata),
         .mem_req_wstrb(mem_req_wstrb),
-        .mem_rsp_valid(mem_rsp_valid),
-        .mem_rsp_ready(mem_rsp_ready),
-        .mem_rsp_rdata(mem_rsp_rdata),
+        .mem_rd_rsp_valid(mem_rd_rsp_valid),
+        .mem_rd_rsp_ready(mem_rd_rsp_ready),
+        .mem_rd_rsp_rdata(mem_rd_rsp_rdata),
+        .mem_rd_rsp_error(mem_rd_rsp_error),
+        .mem_wr_rsp_valid(mem_wr_rsp_valid),
+        .mem_wr_rsp_ready(mem_wr_rsp_ready),
+        .mem_wr_rsp_error(mem_wr_rsp_error),
         .maint_flush_req(maint_flush_req),
         .maint_invalidate_req(maint_invalidate_req),
         .maint_flush_line_req(maint_flush_line_req),
@@ -149,8 +181,7 @@ module cache_scoreboard_tb #(
         .maint_addr(maint_addr),
         .maint_ready(maint_ready),
         .maint_done(maint_done),
-        .maint_error(maint_error),
-        .busy(busy)
+        .maint_error(maint_error)
     );
 
     always #6.25 clk = ~clk;
@@ -158,16 +189,23 @@ module cache_scoreboard_tb #(
     always @(posedge clk) begin
         if (rst) begin
             mem_ready_counter <= 2'b0;
-            mem_rsp_valid <= 1'b0;
+            mem_rd_rsp_valid <= 1'b0;
+            mem_wr_rsp_valid <= 1'b0;
+            mem_rsp_pending <= 1'b0;
+            mem_wr_rsp_pending <= 1'b0;
         end else begin
             mem_ready_counter <= mem_ready_counter + 2'd1;
-            if (mem_rsp_ready) begin
-                mem_rsp_valid <= 1'b0;
+            if (mem_rd_rsp_ready) begin
+                mem_rd_rsp_valid <= 1'b0;
+            end
+            if (mem_wr_rsp_ready) begin
+                mem_wr_rsp_valid <= 1'b0;
             end
             if (mem_rsp_pending) begin
                 if (mem_rsp_countdown == 0) begin
-                    mem_rsp_valid <= 1'b1;
-                    if (mem_rsp_ready) begin
+                    mem_rd_rsp_valid <= 1'b1;
+                    mem_rd_rsp_error <= mem_rsp_pending_error;
+                    if (mem_rd_rsp_ready) begin
                         mem_rsp_pending <= 1'b0;
                     end
                 end else begin
@@ -183,6 +221,23 @@ module cache_scoreboard_tb #(
                     mem_rsp_latency_value = MEM_RSP_EXTRA_LATENCY;
                 end
                 mem_rsp_countdown <= mem_rsp_latency_value;
+                mem_rsp_pending_error <= (mem_read_handshake_count == MEM_RD_ERROR_BEAT);
+            end
+            if (mem_req_valid && mem_req_ready && mem_req_write) begin
+                mem_wr_rsp_pending <= 1'b1;
+                mem_wr_rsp_countdown <= MEM_WR_RSP_EXTRA_LATENCY;
+                mem_wr_rsp_pending_error <= (MEM_WR_ERROR_ENABLE != 0);
+            end
+            if (mem_wr_rsp_pending) begin
+                if (mem_wr_rsp_countdown == 0) begin
+                    mem_wr_rsp_valid <= 1'b1;
+                    mem_wr_rsp_error <= mem_wr_rsp_pending_error;
+                    if (mem_wr_rsp_ready) begin
+                        mem_wr_rsp_pending <= 1'b0;
+                    end
+                end else begin
+                    mem_wr_rsp_countdown <= mem_wr_rsp_countdown - 1;
+                end
             end
         end
     end
@@ -240,13 +295,35 @@ module cache_scoreboard_tb #(
 
         check_maintenance_contract();
         check_illegal_maintenance_contract();
+
+        if (MEM_RD_ERROR_BEAT >= 0) begin
+            check_memory_read_error_contract();
+            finish_scoreboard();
+        end
+        if (MEM_WR_ERROR_ENABLE != 0) begin
+            check_memory_write_error_contract();
+            finish_scoreboard();
+        end
+        if (MEM_WR_RSP_EXTRA_LATENCY != 0) begin
+            check_delayed_memory_write_response_contract();
+            finish_scoreboard();
+        end
+        if (INSTR_RSP_BACKPRESSURE != 0) begin
+            check_instruction_response_backpressure_contract();
+            finish_scoreboard();
+        end
+        if (DATA_RSP_BACKPRESSURE != 0) begin
+            check_data_response_backpressure_contract();
+            finish_scoreboard();
+        end
+
         check_reset_contract();
 
         expect_data_read(19'h00000, "data cold line 0 word 0");
         expect_data_read(19'h00004, "data hit line 0 word 1");
         expect_data_read(19'h00008, "data hit line 0 word 2");
         check_line_maintenance_contract();
-        check_busy_maintenance_contract();
+        check_queued_maintenance_contract();
         expect_data_read(19'h00020, "data cold line 2 word 0");
 
         expect_instr_read(19'h00000, "instruction cold line 0 word 0");
@@ -274,14 +351,97 @@ module cache_scoreboard_tb #(
         check_l1_replacement_eviction_contract();
         expect_data_and_instr_read(19'h00020, 19'h00030, "simultaneous data and instruction reads");
 
+        finish_scoreboard();
+    end
+
+    task finish_scoreboard;
+    begin
         if (error_count == 0) begin
             $display("CACHE SCOREBOARD PASS");
             $finish;
-        end else begin
-            $display("CACHE SCOREBOARD FAIL: %0d mismatches", error_count);
-            $fatal(1);
         end
+        $display("CACHE SCOREBOARD FAIL: %0d mismatches", error_count);
+        $fatal(1);
     end
+    endtask
+
+    task check_memory_read_error_contract;
+    begin
+        expect_data_read_error(19'h00000, "memory read error recovery");
+        mem_rd_rsp_error = 1'b0;
+        expect_data_read(19'h00020, "read after memory read error");
+    end
+    endtask
+
+    task check_memory_write_error_contract;
+    begin
+        expect_data_write_error(19'h00000, 64'h0000_0000_0000_00a5, 8'h01,
+                                "memory write error response");
+        mem_wr_rsp_error = 1'b0;
+        expect_data_read(19'h00020, "read after memory write error");
+    end
+    endtask
+
+    task check_delayed_memory_write_response_contract;
+    begin
+        apply_data_write(19'h00000, 64'h0000_0000_0000_00a5, 8'h01,
+                         "delayed memory write response");
+        expect_data_read(19'h00000, "read after delayed write response");
+    end
+    endtask
+
+    task check_instruction_response_backpressure_contract;
+    begin
+        instr_rsp_ready = 1'b0;
+        @(negedge clk);
+        instr_req_addr = 19'h00000;
+        instr_req_valid = 1'b1;
+        while (!instr_req_ready) begin
+            @(posedge clk);
+        end
+        @(negedge clk);
+        instr_req_valid = 1'b0;
+        while (!instr_rsp_valid) begin
+            @(posedge clk);
+        end
+        repeat (4) @(posedge clk);
+        if (!instr_rsp_valid || instr_rsp_data !== instr_rsp_data) begin
+            $display("INSTR BACKPRESSURE MISMATCH: response did not hold while ready was low");
+            error_count = error_count + 1;
+        end
+        instr_rsp_ready = 1'b1;
+        @(posedge clk);
+        wait_for_idle("instruction response backpressure");
+    end
+    endtask
+
+    task check_data_response_backpressure_contract;
+        reg [DATA_WIDTH-1:0] held_data;
+    begin
+        data_rsp_ready = 1'b0;
+        @(negedge clk);
+        data_req_addr = 19'h00000;
+        data_req_write = 1'b0;
+        data_req_valid = 1'b1;
+        while (!data_req_ready) begin
+            @(posedge clk);
+        end
+        @(negedge clk);
+        data_req_valid = 1'b0;
+        while (!data_rsp_valid) begin
+            @(posedge clk);
+        end
+        held_data = data_rsp_rdata;
+        repeat (4) @(posedge clk);
+        if (!data_rsp_valid || (data_rsp_rdata !== held_data)) begin
+            $display("DATA BACKPRESSURE MISMATCH: response did not hold while ready was low");
+            error_count = error_count + 1;
+        end
+        data_rsp_ready = 1'b1;
+        @(posedge clk);
+        wait_for_idle("data response backpressure");
+    end
+    endtask
 
     task initialize_signals;
     begin
@@ -294,14 +454,23 @@ module cache_scoreboard_tb #(
         maint_addr_valid = 1'b0;
         maint_addr = {ADDR_WIDTH{1'b0}};
         mem_ready_counter = 2'b0;
-        mem_rsp_valid = 1'b0;
+        mem_rd_rsp_valid = 1'b0;
+        mem_rd_rsp_error = 1'b0;
+        mem_wr_rsp_valid = 1'b0;
+        mem_wr_rsp_error = 1'b0;
         mem_rsp_pending = 1'b0;
+        mem_rsp_pending_error = 1'b0;
         mem_rsp_countdown = 0;
         mem_rsp_latency_value = 0;
+        mem_wr_rsp_pending = 1'b0;
+        mem_wr_rsp_pending_error = 1'b0;
+        mem_wr_rsp_countdown = 0;
         mem_read_handshake_count = 0;
         instr_req_valid = 1'b0;
-        data_req_read = 1'b0;
+        instr_rsp_ready = 1'b1;
+        data_req_valid = 1'b0;
         data_req_write = 1'b0;
+        data_rsp_ready = 1'b1;
         instr_req_addr = {ADDR_WIDTH{1'b0}};
         data_req_addr = {ADDR_WIDTH{1'b0}};
         data_req_wdata = {DATA_WIDTH{1'b0}};
@@ -539,22 +708,22 @@ module cache_scoreboard_tb #(
     end
     endtask
 
-    task check_busy_maintenance_contract;
+    task check_queued_maintenance_contract;
         integer reads_before;
         integer reads_after;
         integer timeout_count;
     begin
-        wait_for_idle("busy maintenance idle entry");
+        wait_for_idle("queued maintenance idle entry");
 
         @(negedge clk);
         data_req_addr = NEXT_LINE_ADDR;
-        data_req_read = 1'b1;
         data_req_write = 1'b0;
+        data_req_valid = 1'b1;
         @(posedge clk);
         @(posedge clk);
 
-        if (!busy) begin
-            $display("MAINT BUSY MISMATCH: expected data miss to make cache busy");
+        if (data_req_ready && !mem_req_valid) begin
+            $display("MAINT QUEUED MISMATCH: expected data miss to block new requests");
             error_count = error_count + 1;
         end
 
@@ -567,30 +736,30 @@ module cache_scoreboard_tb #(
         maint_invalidate_line_req = 1'b0;
         maint_addr_valid = 1'b0;
         maint_addr = {ADDR_WIDTH{1'b0}};
-        data_req_read = 1'b0;
+        data_req_valid = 1'b0;
 
         timeout_count = 0;
         while (!maint_done && !maint_error) begin
             @(posedge clk);
             timeout_count = timeout_count + 1;
             if (timeout_count > 1000) begin
-                $display("TIMEOUT: busy maintenance did not complete");
+                $display("TIMEOUT: queued maintenance did not complete");
                 error_count = error_count + 1;
-                disable check_busy_maintenance_contract;
+                disable check_queued_maintenance_contract;
             end
         end
 
         if (maint_error) begin
-            $display("MAINT BUSY MISMATCH: queued line invalidate returned error");
+            $display("MAINT QUEUED MISMATCH: queued line invalidate returned error");
             error_count = error_count + 1;
         end
 
-        wait_for_idle("busy maintenance idle exit");
+        wait_for_idle("queued maintenance idle exit");
         reads_before = mem_read_handshake_count;
-        expect_data_read({ADDR_WIDTH{1'b0}}, "busy maintenance refill after queued line invalidate");
+        expect_data_read({ADDR_WIDTH{1'b0}}, "queued maintenance refill after queued line invalidate");
         reads_after = mem_read_handshake_count;
         if (reads_after == reads_before) begin
-            $display("MAINT BUSY MISMATCH: queued line invalidate did not force refill");
+            $display("MAINT QUEUED MISMATCH: queued line invalidate did not force refill");
             error_count = error_count + 1;
         end
     end
@@ -622,7 +791,7 @@ module cache_scoreboard_tb #(
         @(negedge clk);
         rst = 1'b1;
         instr_req_valid = 1'b0;
-        data_req_read = 1'b0;
+        data_req_valid = 1'b0;
         data_req_write = 1'b0;
         maint_flush_req = 1'b0;
         maint_invalidate_req = 1'b0;
@@ -645,10 +814,11 @@ module cache_scoreboard_tb #(
 
         @(negedge clk);
         data_req_addr = NEXT_LINE_ADDR + NEXT_LINE_ADDR;
-        data_req_read = 1'b1;
+        data_req_write = 1'b0;
+        data_req_valid = 1'b1;
         @(posedge clk);
         @(posedge clk);
-        if (!busy && !mem_req_valid) begin
+        if (!mem_req_valid && data_req_ready) begin
             $display("RESET MISMATCH: expected transaction before reset pulse");
             error_count = error_count + 1;
         end
@@ -670,11 +840,14 @@ module cache_scoreboard_tb #(
     begin
         timeout_count = 0;
         repeat (2) @(posedge clk);
-        while (busy || mem_req_valid || mem_rsp_valid) begin
+        while (mem_req_valid || mem_rd_rsp_valid || mem_wr_rsp_valid ||
+               instr_rsp_valid || data_rsp_valid || !instr_req_ready || !data_req_ready) begin
             @(posedge clk);
             timeout_count = timeout_count + 1;
             if (timeout_count > 1000) begin
-                $display("TIMEOUT: %0s did not become idle", label);
+                $display("TIMEOUT: %0s did not become idle req=%0b rd=%0b wr=%0b irsp=%0b drsp=%0b iready=%0b dready=%0b",
+                         label, mem_req_valid, mem_rd_rsp_valid, mem_wr_rsp_valid,
+                         instr_rsp_valid, data_rsp_valid, instr_req_ready, data_req_ready);
                 error_count = error_count + 1;
                 disable wait_for_idle;
             end
@@ -689,7 +862,7 @@ module cache_scoreboard_tb #(
     begin
         timeout_count = 0;
         repeat (2) @(posedge clk);
-        while (busy) begin
+        while (!instr_rsp_valid && !data_rsp_valid) begin
             @(posedge clk);
             timeout_count = timeout_count + 1;
             if (timeout_count > 1000) begin
@@ -711,12 +884,48 @@ module cache_scoreboard_tb #(
 
         @(negedge clk);
         data_req_addr = addr;
-        data_req_read = 1'b1;
         data_req_write = 1'b0;
-        wait_for_read_response(label);
-        compare_data(label, addr, expected_data, data_resp_rdata);
+        data_req_valid = 1'b1;
+        while (!data_req_ready) begin
+            @(posedge clk);
+        end
         @(negedge clk);
-        data_req_read = 1'b0;
+        data_req_valid = 1'b0;
+        while (!data_rsp_valid) begin
+            @(posedge clk);
+        end
+        if (data_rsp_error) begin
+            $display("DATA ERROR MISMATCH: %0s returned unexpected error", label);
+            error_count = error_count + 1;
+        end
+        compare_data(label, addr, expected_data, data_rsp_rdata);
+        @(posedge clk);
+        wait_for_idle(label);
+    end
+    endtask
+
+    task expect_data_read_error;
+        input [ADDR_WIDTH-1:0] addr;
+        input [1023:0] label;
+    begin
+        @(negedge clk);
+        data_req_addr = addr;
+        data_req_write = 1'b0;
+        data_req_valid = 1'b1;
+        while (!data_req_ready) begin
+            @(posedge clk);
+        end
+        @(negedge clk);
+        data_req_valid = 1'b0;
+        while (!data_rsp_valid) begin
+            @(posedge clk);
+        end
+        if (!data_rsp_error || (data_rsp_rdata !== {DATA_WIDTH{1'b0}})) begin
+            $display("DATA ERROR MISMATCH: %0s error=%0b data=%h",
+                     label, data_rsp_error, data_rsp_rdata);
+            error_count = error_count + 1;
+        end
+        @(posedge clk);
         wait_for_idle(label);
     end
     endtask
@@ -731,10 +940,20 @@ module cache_scoreboard_tb #(
         @(negedge clk);
         instr_req_addr = addr;
         instr_req_valid = 1'b1;
-        wait_for_read_response(label);
-        compare_instr(label, addr, expected_instr, instr_resp_data);
+        while (!instr_req_ready) begin
+            @(posedge clk);
+        end
         @(negedge clk);
         instr_req_valid = 1'b0;
+        while (!instr_rsp_valid) begin
+            @(posedge clk);
+        end
+        if (instr_rsp_error) begin
+            $display("INSTR ERROR MISMATCH: %0s returned unexpected error", label);
+            error_count = error_count + 1;
+        end
+        compare_instr(label, addr, expected_instr, instr_rsp_data);
+        @(posedge clk);
         wait_for_idle(label);
     end
     endtask
@@ -747,10 +966,16 @@ module cache_scoreboard_tb #(
         @(negedge clk);
         instr_req_addr = addr;
         instr_req_valid = 1'b1;
-        wait_for_read_response(label);
-        compare_instr(label, addr, expected_instr, instr_resp_data);
+        while (!instr_req_ready) begin
+            @(posedge clk);
+        end
         @(negedge clk);
         instr_req_valid = 1'b0;
+        while (!instr_rsp_valid) begin
+            @(posedge clk);
+        end
+        compare_instr(label, addr, expected_instr, instr_rsp_data);
+        @(posedge clk);
         wait_for_idle(label);
     end
     endtask
@@ -790,14 +1015,21 @@ module cache_scoreboard_tb #(
         @(negedge clk);
         data_req_addr = data_addr;
         instr_req_addr = instr_addr;
-        data_req_read = 1'b1;
+        data_req_valid = 1'b1;
+        data_req_write = 1'b0;
         instr_req_valid = 1'b1;
-        wait_for_read_response(label);
-        compare_data(label, data_addr, expected_data, data_resp_rdata);
-        compare_instr(label, instr_addr, expected_instr, instr_resp_data);
+        while (!data_req_ready || !instr_req_ready) begin
+            @(posedge clk);
+        end
         @(negedge clk);
-        data_req_read = 1'b0;
+        data_req_valid = 1'b0;
         instr_req_valid = 1'b0;
+        while (!data_rsp_valid || !instr_rsp_valid) begin
+            @(posedge clk);
+        end
+        compare_data(label, data_addr, expected_data, data_rsp_rdata);
+        compare_instr(label, instr_addr, expected_instr, instr_rsp_data);
+        @(posedge clk);
         wait_for_idle(label);
     end
     endtask
@@ -817,14 +1049,57 @@ module cache_scoreboard_tb #(
         data_req_wdata = write_data;
         data_req_wstrb = write_strobe;
         data_req_write = 1'b1;
-        data_req_read = 1'b0;
-        repeat (2) @(posedge clk);
+        data_req_valid = 1'b1;
+        while (!data_req_ready) begin
+            @(posedge clk);
+        end
         @(negedge clk);
+        data_req_valid = 1'b0;
         data_req_write = 1'b0;
 
+        while (!data_rsp_valid) begin
+            @(posedge clk);
+        end
+        if (data_rsp_error) begin
+            $display("WRITE ERROR MISMATCH: %0s returned unexpected error", label);
+            error_count = error_count + 1;
+        end
+        @(posedge clk);
         wait_for_idle(label);
         write_burst_check_active = 1'b0;
         update_reference_write(addr, write_data, write_strobe);
+        data_req_wstrb = {(DATA_WIDTH/8){1'b0}};
+        data_req_wdata = {DATA_WIDTH{1'b0}};
+    end
+    endtask
+
+    task expect_data_write_error;
+        input [ADDR_WIDTH-1:0] addr;
+        input [DATA_WIDTH-1:0] write_data;
+        input [(DATA_WIDTH/8)-1:0] write_strobe;
+        input [1023:0] label;
+    begin
+        @(negedge clk);
+        data_req_addr = addr;
+        data_req_wdata = write_data;
+        data_req_wstrb = write_strobe;
+        data_req_write = 1'b1;
+        data_req_valid = 1'b1;
+        while (!data_req_ready) begin
+            @(posedge clk);
+        end
+        @(negedge clk);
+        data_req_valid = 1'b0;
+        data_req_write = 1'b0;
+        while (!data_rsp_valid) begin
+            @(posedge clk);
+        end
+        if (!data_rsp_error) begin
+            $display("WRITE ERROR MISMATCH: %0s did not return error", label);
+            error_count = error_count + 1;
+        end
+        @(posedge clk);
+        wait_for_idle(label);
         data_req_wstrb = {(DATA_WIDTH/8){1'b0}};
         data_req_wdata = {DATA_WIDTH{1'b0}};
     end

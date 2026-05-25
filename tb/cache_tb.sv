@@ -3,9 +3,10 @@
 
 `timescale 1ns / 1ps
 
-module cache_tb();
+module cache_tb;
     localparam ADDR_WIDTH = 19;
     localparam DATA_WIDTH = 64;
+    localparam MEM_DATA_WIDTH = 32;
     localparam L1_SET_COUNT = 64;
     localparam L2_SET_COUNT = 256;
     localparam RAM_ADDR_WIDTH = 17;
@@ -13,20 +14,31 @@ module cache_tb();
     reg clk;
     reg rst;
     reg mem_ready;
-
     reg instr_req_valid;
-    reg data_req_read;
+    reg instr_rsp_ready;
+    reg data_req_valid;
     reg data_req_write;
+    reg data_rsp_ready;
     reg [ADDR_WIDTH-1:0] instr_req_addr;
     reg [ADDR_WIDTH-1:0] data_req_addr;
     reg [DATA_WIDTH-1:0] data_req_wdata;
     reg [(DATA_WIDTH/8)-1:0] data_req_wstrb;
+    reg mem_rd_rsp_valid;
+    reg mem_rd_rsp_error;
+    reg mem_wr_rsp_valid;
+    reg mem_wr_rsp_error;
 
-    wire [31:0] instr_resp_data;
-    wire [DATA_WIDTH-1:0] data_resp_rdata;
+    wire instr_req_ready;
+    wire instr_rsp_valid;
+    wire [31:0] instr_rsp_data;
+    wire instr_rsp_error;
+    wire data_req_ready;
+    wire data_rsp_valid;
+    wire [DATA_WIDTH-1:0] data_rsp_rdata;
+    wire data_rsp_error;
     wire [31:0] mem_req_addr;
-    wire [31:0] mem_req_wdata;
-    wire [31:0] mem_rsp_rdata;
+    wire [MEM_DATA_WIDTH-1:0] mem_req_wdata;
+    wire [MEM_DATA_WIDTH-1:0] mem_rd_rsp_rdata;
     wire mem_req_valid;
     wire mem_req_ready;
     wire mem_req_write;
@@ -35,26 +47,25 @@ module cache_tb();
     wire [7:0] mem_req_beat_index;
     wire mem_req_burst_start;
     wire mem_req_burst_last;
-    wire [3:0] mem_req_wstrb;
-    wire mem_rsp_ready;
-    reg mem_rsp_valid;
-    wire busy;
+    wire [(MEM_DATA_WIDTH/8)-1:0] mem_req_wstrb;
+    wire mem_rd_rsp_ready;
+    wire mem_wr_rsp_ready;
 
     assign mem_req_ready = mem_ready;
 
     cache_memory_model #(
         .ADDR_WIDTH(RAM_ADDR_WIDTH),
-        .DATA_WIDTH(32)
+        .DATA_WIDTH(MEM_DATA_WIDTH)
     ) main_memory (
         .clk(clk),
         .rst_ni(~rst),
-        .write_addr(mem_req_addr[18:2]),
-        .read_addr(mem_req_addr[18:2]),
+        .write_addr(mem_req_addr[RAM_ADDR_WIDTH+1:2]),
+        .read_addr(mem_req_addr[RAM_ADDR_WIDTH+1:2]),
         .write_data(mem_req_wdata),
-        .write_strobe(mem_req_write ? mem_req_wstrb : 4'b0),
+        .write_strobe(mem_req_write ? mem_req_wstrb : {(MEM_DATA_WIDTH/8){1'b0}}),
         .read_enable(mem_req_valid && mem_req_ready && !mem_req_write),
         .ready(1'b1),
-        .read_data(mem_rsp_rdata)
+        .read_data(mem_rd_rsp_rdata)
     );
 
     cache #(
@@ -64,14 +75,22 @@ module cache_tb();
         .clk(clk),
         .rst(rst),
         .instr_req_valid(instr_req_valid),
+        .instr_req_ready(instr_req_ready),
         .instr_req_addr(instr_req_addr),
-        .instr_resp_data(instr_resp_data),
-        .data_req_read(data_req_read),
+        .instr_rsp_valid(instr_rsp_valid),
+        .instr_rsp_ready(instr_rsp_ready),
+        .instr_rsp_data(instr_rsp_data),
+        .instr_rsp_error(instr_rsp_error),
+        .data_req_valid(data_req_valid),
+        .data_req_ready(data_req_ready),
         .data_req_write(data_req_write),
         .data_req_addr(data_req_addr),
         .data_req_wdata(data_req_wdata),
         .data_req_wstrb(data_req_wstrb),
-        .data_resp_rdata(data_resp_rdata),
+        .data_rsp_valid(data_rsp_valid),
+        .data_rsp_ready(data_rsp_ready),
+        .data_rsp_rdata(data_rsp_rdata),
+        .data_rsp_error(data_rsp_error),
         .mem_req_valid(mem_req_valid),
         .mem_req_ready(mem_req_ready),
         .mem_req_write(mem_req_write),
@@ -83,9 +102,13 @@ module cache_tb();
         .mem_req_addr(mem_req_addr),
         .mem_req_wdata(mem_req_wdata),
         .mem_req_wstrb(mem_req_wstrb),
-        .mem_rsp_valid(mem_rsp_valid),
-        .mem_rsp_ready(mem_rsp_ready),
-        .mem_rsp_rdata(mem_rsp_rdata),
+        .mem_rd_rsp_valid(mem_rd_rsp_valid),
+        .mem_rd_rsp_ready(mem_rd_rsp_ready),
+        .mem_rd_rsp_rdata(mem_rd_rsp_rdata),
+        .mem_rd_rsp_error(mem_rd_rsp_error),
+        .mem_wr_rsp_valid(mem_wr_rsp_valid),
+        .mem_wr_rsp_ready(mem_wr_rsp_ready),
+        .mem_wr_rsp_error(mem_wr_rsp_error),
         .maint_flush_req(1'b0),
         .maint_invalidate_req(1'b0),
         .maint_flush_line_req(1'b0),
@@ -94,8 +117,7 @@ module cache_tb();
         .maint_addr({ADDR_WIDTH{1'b0}}),
         .maint_ready(),
         .maint_done(),
-        .maint_error(),
-        .busy(busy)
+        .maint_error()
     );
 
     always #6.25 clk = ~clk;
@@ -104,18 +126,23 @@ module cache_tb();
         clk = 1'b1;
         rst = 1'b1;
         mem_ready = 1'b1;
-        mem_rsp_valid = 1'b0;
         instr_req_valid = 1'b0;
-        data_req_read = 1'b0;
+        instr_rsp_ready = 1'b1;
+        data_req_valid = 1'b0;
         data_req_write = 1'b0;
+        data_rsp_ready = 1'b1;
         instr_req_addr = {ADDR_WIDTH{1'b0}};
         data_req_addr = {ADDR_WIDTH{1'b0}};
         data_req_wdata = {DATA_WIDTH{1'b0}};
         data_req_wstrb = {(DATA_WIDTH/8){1'b0}};
+        mem_rd_rsp_valid = 1'b0;
+        mem_rd_rsp_error = 1'b0;
+        mem_wr_rsp_valid = 1'b0;
+        mem_wr_rsp_error = 1'b0;
 
-        #1000;
+        repeat (8) @(posedge clk);
         rst = 1'b0;
-        #1500;
+        repeat (8) @(posedge clk);
 
         read_data(19'h00014);
         read_data(19'h00018);
@@ -125,43 +152,62 @@ module cache_tb();
         read_instr(19'h00008);
         read_data_instr(19'h00014, 19'h00020);
 
-        #500;
+        repeat (10) @(posedge clk);
         $finish;
     end
 
     always @(posedge clk) begin
         if (rst) begin
-            mem_rsp_valid <= 1'b0;
-        end else if (mem_rsp_ready) begin
-            mem_rsp_valid <= mem_req_valid && mem_req_ready && !mem_req_write;
+            mem_rd_rsp_valid <= 1'b0;
+            mem_wr_rsp_valid <= 1'b0;
+        end else begin
+            if (mem_rd_rsp_ready) begin
+                mem_rd_rsp_valid <= 1'b0;
+            end
+            if (mem_wr_rsp_ready) begin
+                mem_wr_rsp_valid <= 1'b0;
+            end
+            if (mem_req_valid && mem_req_ready && !mem_req_write) begin
+                mem_rd_rsp_valid <= 1'b1;
+            end
+            if (mem_req_valid && mem_req_ready && mem_req_write) begin
+                mem_wr_rsp_valid <= 1'b1;
+            end
         end
     end
 
     task read_instr(input [ADDR_WIDTH-1:0] addr);
     begin
-        #4;
+        @(negedge clk);
         instr_req_addr = addr;
         instr_req_valid = 1'b1;
-        repeat(2) @(posedge clk);
-        instr_req_valid = 1'b0;
-        @(posedge clk);
-        while (busy) begin
+        while (!instr_req_ready) begin
             @(posedge clk);
         end
+        @(negedge clk);
+        instr_req_valid = 1'b0;
+        while (!instr_rsp_valid) begin
+            @(posedge clk);
+        end
+        @(posedge clk);
     end
     endtask
 
     task read_data(input [ADDR_WIDTH-1:0] addr);
     begin
-        #4;
+        @(negedge clk);
         data_req_addr = addr;
-        data_req_read = 1'b1;
-        repeat(2) @(posedge clk);
-        data_req_read = 1'b0;
-        @(posedge clk);
-        while (busy) begin
+        data_req_write = 1'b0;
+        data_req_valid = 1'b1;
+        while (!data_req_ready) begin
             @(posedge clk);
         end
+        @(negedge clk);
+        data_req_valid = 1'b0;
+        while (!data_rsp_valid) begin
+            @(posedge clk);
+        end
+        @(posedge clk);
     end
     endtask
 
@@ -171,17 +217,22 @@ module cache_tb();
         input [(DATA_WIDTH/8)-1:0] strobe
     );
     begin
-        #4;
+        @(negedge clk);
         data_req_addr = addr;
         data_req_wdata = data;
         data_req_wstrb = strobe;
         data_req_write = 1'b1;
-        repeat(2) @(posedge clk);
-        data_req_write = 1'b0;
-        @(posedge clk);
-        while (busy | (mem_req_valid & mem_req_write)) begin
+        data_req_valid = 1'b1;
+        while (!data_req_ready) begin
             @(posedge clk);
         end
+        @(negedge clk);
+        data_req_valid = 1'b0;
+        while (!data_rsp_valid) begin
+            @(posedge clk);
+        end
+        @(posedge clk);
+        data_req_write = 1'b0;
         data_req_wstrb = {(DATA_WIDTH/8){1'b0}};
     end
     endtask
@@ -191,17 +242,22 @@ module cache_tb();
         input [ADDR_WIDTH-1:0] instr_addr
     );
     begin
-        #4;
+        @(negedge clk);
         data_req_addr = data_addr;
         instr_req_addr = instr_addr;
-        data_req_read = 1'b1;
+        data_req_write = 1'b0;
+        data_req_valid = 1'b1;
         instr_req_valid = 1'b1;
-        repeat(2) @(posedge clk);
-        data_req_read = 1'b0;
-        instr_req_valid = 1'b0;
-        while (busy) begin
+        while (!data_req_ready || !instr_req_ready) begin
             @(posedge clk);
         end
+        @(negedge clk);
+        data_req_valid = 1'b0;
+        instr_req_valid = 1'b0;
+        while (!data_rsp_valid || !instr_rsp_valid) begin
+            @(posedge clk);
+        end
+        @(posedge clk);
     end
     endtask
 endmodule

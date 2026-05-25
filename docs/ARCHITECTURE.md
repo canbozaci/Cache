@@ -9,7 +9,7 @@ Supported profile:
 - Single cache clock.
 - Non-coherent instruction/data L1 behavior.
 - Write-through data writes.
-- Blocking command-style CPU-side interface.
+- Blocking ready/valid CPU-side request and response interface.
 - Native beat-based memory request/response interface.
 - External CPU and memory adaptors.
 
@@ -62,13 +62,20 @@ The native memory request channel is:
 - `mem_req_wdata`
 - `mem_req_wstrb`
 
-The native memory response channel is:
+The native memory read response channel is:
 
-- `mem_rsp_valid`
-- `mem_rsp_ready`
-- `mem_rsp_rdata`
+- `mem_rd_rsp_valid`
+- `mem_rd_rsp_ready`
+- `mem_rd_rsp_rdata`
+- `mem_rd_rsp_error`
 
-Writes complete when the request is accepted. Reads complete when the response is valid.
+The native memory write response channel is:
+
+- `mem_wr_rsp_valid`
+- `mem_wr_rsp_ready`
+- `mem_wr_rsp_error`
+
+Reads complete when the matching read responses are accepted. Write-through writes complete only after all matching write responses are accepted.
 
 The maintenance channel is:
 
@@ -82,7 +89,7 @@ The maintenance channel is:
 - `maint_done`
 - `maint_error`
 
-The cache has a fixed single-entry maintenance queue. This depth is intentional and is not parameterized. A maintenance request can be accepted while cache traffic is active when `maint_ready` is high. If accepted during active traffic, the operation is held until current cache traffic drains, then `maint_done` or `maint_error` pulses. `busy` remains high while a maintenance operation is queued. External logic must pace back-to-back maintenance requests with `maint_ready`, `maint_done`, and `maint_error`.
+The cache has a fixed single-entry maintenance queue. This depth is intentional and is not parameterized. A maintenance request can be accepted while cache traffic is active when `maint_ready` is high. If accepted during active traffic, the operation is held until current cache traffic drains, then `maint_done` or `maint_error` pulses. External logic must pace back-to-back maintenance requests with `maint_ready`, `maint_done`, and `maint_error`.
 
 Global invalidate clears cache valid state. Global flush is a no-op because the cache is write-through. Address-selective line invalidate clears matching tag/valid entries for `maint_addr` in L1 data, L1 instruction, and L2. Address-selective line flush is also a write-through no-op. Global and line requests must not be asserted together; line requests require `maint_addr_valid`.
 
@@ -104,7 +111,7 @@ The native cache memory interface is beat-based with burst metadata:
 - Single-beat write-through traffic reports `mem_req_burst=0`, `mem_req_burst_len=1`, and `mem_req_beat_index=0`.
 - The generic cache does not expose bus-specific burst type, lock, exclusive, or ID fields.
 
-Memory adaptors may use the burst metadata to coalesce cache read or write beats into a target bus burst. That coalescing is an adaptor optimization and must preserve the cache-visible beat order and response contract.
+Memory adaptors may use the burst metadata to coalesce cache read or write beats into a target bus burst. That coalescing is an adaptor optimization and must preserve the cache-visible beat order and response contract. See `docs/NATIVE_MEMORY_PROTOCOL.md` and `docs/ERROR_HANDLING.md`.
 
 `cache` can be checked without any CPU adapter:
 

@@ -37,6 +37,9 @@ The scoreboard keeps an independent byte-addressed reference memory initialized 
 - Simultaneous instruction and data requests.
 - Native memory request wait states.
 - Fixed and variable native memory response latency.
+- Instruction and data response backpressure.
+- Native memory read errors on first, middle, and final line-fill beats.
+- Native memory write response success, error, and delayed response cases.
 - Native memory line-fill burst metadata.
 - Native memory write-through burst metadata.
 - Runtime global and address-selective line maintenance handshakes.

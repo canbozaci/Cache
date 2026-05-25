@@ -40,6 +40,13 @@ run_case "addr20" -P cache_scoreboard_tb.ADDR_WIDTH=20
 run_case "ready_stalls" -P cache_scoreboard_tb.MEM_READY_STALLS=1
 run_case "rsp_latency_2" -P cache_scoreboard_tb.MEM_RSP_EXTRA_LATENCY=2
 run_case "rsp_variable_latency" -P cache_scoreboard_tb.MEM_RSP_VARIABLE_LATENCY=1
+run_case "read_error_first" -P cache_scoreboard_tb.MEM_RD_ERROR_BEAT=0
+run_case "read_error_middle" -P cache_scoreboard_tb.MEM_RD_ERROR_BEAT=2
+run_case "read_error_last" -P cache_scoreboard_tb.MEM_RD_ERROR_BEAT=3
+run_case "write_error" -P cache_scoreboard_tb.MEM_WR_ERROR_ENABLE=1
+run_case "write_rsp_latency" -P cache_scoreboard_tb.MEM_WR_RSP_EXTRA_LATENCY=3
+run_case "instr_rsp_backpressure" -P cache_scoreboard_tb.INSTR_RSP_BACKPRESSURE=1
+run_case "data_rsp_backpressure" -P cache_scoreboard_tb.DATA_RSP_BACKPRESSURE=1
 run_case "addr20_dw32" \
   -P cache_scoreboard_tb.ADDR_WIDTH=20 \
   -P cache_scoreboard_tb.DATA_WIDTH=32
