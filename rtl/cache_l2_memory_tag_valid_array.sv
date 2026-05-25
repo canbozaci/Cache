@@ -1,5 +1,5 @@
-// Synthesizable dual-port tag/valid array model.
-module cache_l2_tag_valid_array#(
+// Synthesizable dual-port L2 cache tag/valid memory array model.
+module cache_l2_memory_tag_valid_array#(
   parameter   NUM_COL             =   1, // no byte enables
   parameter   COL_WIDTH           =   8, // tag size (7 bits) + valid bit (1 bit)
   parameter   ADDR_WIDTH          =   8, // idx size = 8, log2(256) = 8 (256 = block no)

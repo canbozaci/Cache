@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-module cache_l2_way#(
+module cache_l2_memory_way#(
     parameter LINE_WIDTH = 128,
     parameter TAG_WIDTH = 7,
     parameter INDEX_WIDTH = 8,
@@ -27,12 +27,12 @@ module cache_l2_way#(
     );
 
 
-    cache_l2_data_array #(
+    cache_l2_memory_array #(
         .NUM_COL(LINE_BYTE_COUNT),
         .COL_WIDTH(8),
         .ADDR_WIDTH(INDEX_WIDTH),
         .DATA_WIDTH(LINE_WIDTH)
-    ) cache_l2_data_array_inst( // module that holds data bits L2
+    ) cache_l2_memory_array_inst(
         .clk(clk),
         .we_p1(we_p1),
         .we_p2(we_p2),
@@ -46,12 +46,12 @@ module cache_l2_way#(
         .read_data_p2(block_read_p2)
     );
 
-    cache_l2_tag_valid_array #(
+    cache_l2_memory_tag_valid_array #(
         .NUM_COL(1),
         .COL_WIDTH(TAG_WIDTH + 1),
         .ADDR_WIDTH(INDEX_WIDTH),
         .DATA_WIDTH(TAG_WIDTH + 1)
-    ) L2_valid_tag_inst( // module that holds the valid & data bits
+    ) cache_l2_memory_tag_valid_array_inst(
         .clk(clk),
         .rst(rst),
         .we_p1(we_p1),

@@ -1,5 +1,5 @@
-// Synthesizable dual-port cache data array model with byte enables.
-module cache_l2_data_array#(
+// Synthesizable dual-port L2 cache line memory array model with byte enables.
+module cache_l2_memory_array#(
    parameter   NUM_COL             =   16,// no byte enables
    parameter   COL_WIDTH           =   8, // 1 byte = 8 bits
    parameter   ADDR_WIDTH          =   8, // idx size = 8, log2(256) = 8 (256 = block no)

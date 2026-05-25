@@ -4,12 +4,12 @@ rtl/cache_tag_match.sv
 rtl/cache_way_select.sv
 rtl/cache_l1_memory_array.sv
 rtl/cache_l1_memory_tag_valid_array.sv
-rtl/cache_l2_data_array.sv
-rtl/cache_l2_tag_valid_array.sv
+rtl/cache_l2_memory_array.sv
+rtl/cache_l2_memory_tag_valid_array.sv
 rtl/cache_l1_replacement.sv
 rtl/cache_l2_replacement.sv
 rtl/cache_l1_memory_way.sv
-rtl/cache_l2_way.sv
+rtl/cache_l2_memory_way.sv
 rtl/cache_l1_data.sv
 rtl/cache_l2.sv
 rtl/cache_controller.sv

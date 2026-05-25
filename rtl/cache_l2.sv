@@ -86,12 +86,12 @@ module cache_l2#( // L2 cache
     assign cache_set_output_select_p1 = ((read_p1) & (hit_s2_p1 & (~hit_s1_p1)));
     assign cache_set_output_select_p2 = ((read_p2) & (hit_s2_p2 & (~hit_s1_p2)));
 
-    cache_l2_way #(
+    cache_l2_memory_way #(
         .LINE_WIDTH(LINE_WIDTH),
         .TAG_WIDTH(TAG_WIDTH),
         .INDEX_WIDTH(INDEX_WIDTH),
         .LINE_BYTE_COUNT(LINE_BYTE_COUNT)
-    ) cache_l2_way_0(
+    ) cache_l2_memory_way_0(
         .clk(clk),
         .rst(rst),
         .block_write_p1(data_block_write_p1),
@@ -112,12 +112,12 @@ module cache_l2#( // L2 cache
         .tag_p2(tag_out_s1_p2)
     );
 
-    cache_l2_way #(
+    cache_l2_memory_way #(
         .LINE_WIDTH(LINE_WIDTH),
         .TAG_WIDTH(TAG_WIDTH),
         .INDEX_WIDTH(INDEX_WIDTH),
         .LINE_BYTE_COUNT(LINE_BYTE_COUNT)
-    ) cache_l2_way_1(
+    ) cache_l2_memory_way_1(
         .clk(clk),
         .rst(rst),
         .block_write_p1(data_block_write_p1),
