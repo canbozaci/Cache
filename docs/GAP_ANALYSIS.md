@@ -35,11 +35,14 @@
 
 - Data widths above 128 bits are not release-supported yet.
 - The public cache timing contract is incomplete: request stability, response validity, and legal simultaneous command behavior need to be frozen.
-- CDC is intentionally outside the generic cache; asynchronous clock crossing must be implemented in a memory adaptor.
-- Bus-specific burst semantics are not implemented in the cache; adaptors must translate generic burst metadata into the target bus protocol.
 - Instruction and data L1 caches are not coherent with each other after data-side writes.
+
+## Integration Notes
+
+- CDC is intentionally outside the generic cache; asynchronous clock crossing must be implemented in a memory adaptor or higher-level SoC integration.
+- Bus-specific burst semantics are intentionally outside the generic cache; adaptors translate generic burst metadata into the target bus protocol.
 - Maintenance queue depth is intentionally fixed at one; back-to-back software maintenance streams require external request pacing.
-- SRAM macro hooks are adapter-based, role-specific for L1 data/instruction memories, and documented, but macro-backed configurations are not yet compiled in CI with project-specific adapters.
+- SRAM macro hooks are adapter-based and role-specific for L1 data/instruction memories. Project-specific macro-backed configurations belong in integration repositories and are not expected to compile in this generic cache CI.
 
 ## Remaining Verification Gaps
 
@@ -59,7 +62,6 @@ P0 before first real version:
 
 - Keep `make verify` passing after every update.
 - Write the public cache request/response and native memory timing contract as a dedicated integration document.
-- Define memory-adaptor CDC expectations for external memory clocks.
 
 P1 for stronger bus-width genericity:
 
@@ -71,5 +73,4 @@ P1 for stronger bus-width genericity:
 P2 before release maturity:
 
 - Add protocol assertions and functional coverage.
-- Add CI or integration examples for external SRAM macro adapters without adding SRAM cells to this repository.
 - Clean remaining historical module names after verification protects the behavior.
