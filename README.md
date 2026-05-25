@@ -1,5 +1,7 @@
 # Cache SystemVerilog IP
 
+[![CI](https://github.com/canbozaci/Cache/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/canbozaci/Cache/actions/workflows/ci.yml)
+
 Reusable, non-coherent, blocking, write-through SystemVerilog cache subsystem for embedded and single-core integration.
 
 This repository contains the generic cache IP only. CPU-side protocol adaptation, ISA-specific load/store formatting, memory bus adaptation, CDC, and SoC-specific integration logic belong in external adaptor repositories or the integrating project.
@@ -53,6 +55,12 @@ To elaborate only the reusable cache top:
 make compile-cache
 ```
 
+## Parameter Support
+
+The cache exposes configurable address, data, memory-beat, line-width, and set-count parameters, but not every legal-looking combination is release-supported. A parameter combination is release-supported only when it is listed in `docs/PARAMETERS.md` and covered by the documented scoreboard or compile/lint evidence.
+
+Unsupported combinations may elaborate during development, but they should not be used as product claims or integration baselines until the supported matrix and verification evidence are updated.
+
 ## Directory Layout
 
 ```text
@@ -75,7 +83,7 @@ Memory-side bus adaptation belongs outside this repository in a memory-side adap
 
 See `docs/GAP_ANALYSIS.md` for current design, verification, documentation, and architecture gaps.
 
-The current parameter contract is documented in `docs/PARAMETERS.md`. The public timing and integration contract is documented in `docs/TIMING_CONTRACT.md`.
+The current parameter contract is documented in `docs/PARAMETERS.md`. The public timing and integration contract is documented in `docs/TIMING_CONTRACT.md`. Release gates are tracked in `docs/RELEASE_CHECKLIST.md`.
 
 ## License
 

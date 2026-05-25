@@ -7,6 +7,7 @@ This file tracks only unresolved gaps for the generic cache IP. Stable baseline 
 - `docs/SRAM_INTEGRATION.md` for ASIC SRAM macro wrapper expectations and project-owned macro adapter hooks.
 - `docs/TIMING_CONTRACT.md` for clocks, reset, CPU-side request timing, native memory handshakes, maintenance commands, known coherency limitations, and timing diagrams.
 - `docs/VERIFICATION_PLAN.md` for the current regression gates, scoreboard matrix, random runs, block tests, and integration verification responsibilities.
+- `docs/RELEASE_CHECKLIST.md` for release gates and pre-tag checklist items.
 
 ## Remaining Design Gaps
 
