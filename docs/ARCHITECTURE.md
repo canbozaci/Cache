@@ -57,11 +57,12 @@ The native cache memory interface is beat-based with burst metadata:
 - `mem_req_beat_index` is the zero-based beat number within that line fill.
 - `mem_req_burst_start` is asserted on beat 0.
 - `mem_req_burst_last` is asserted on the final line-fill beat.
-- Write-through traffic is emitted as independent single-beat writes.
-- Write-through traffic currently does not use burst metadata; writes report `mem_req_burst=0`, `mem_req_burst_len=1`, and `mem_req_beat_index=0`.
+- Write-through traffic is emitted as ordered contiguous write beats when a data-side write spans more than one native memory beat.
+- Multi-beat write-through traffic uses the same burst metadata fields as line-fill reads.
+- Single-beat write-through traffic reports `mem_req_burst=0`, `mem_req_burst_len=1`, and `mem_req_beat_index=0`.
 - The generic cache does not expose bus-specific burst type, lock, exclusive, or ID fields.
 
-Memory adaptors may use the burst metadata to coalesce cache read beats into a target bus burst. That coalescing is an adaptor optimization and must preserve the cache-visible beat order and response contract.
+Memory adaptors may use the burst metadata to coalesce cache read or write beats into a target bus burst. That coalescing is an adaptor optimization and must preserve the cache-visible beat order and response contract.
 
 `cache` can be checked without any CPU adapter:
 
@@ -84,4 +85,4 @@ See `docs/PARAMETERS.md` for legal values, derived widths, unsupported combinati
 
 The CPU adaptor repository owns load/store formatting and CPU-facing port conventions.
 
-The memory adaptor repository owns translation from the beat-based native cache memory side into a SoC bus protocol. It also owns bus-specific burst encoding, burst coalescing, write burst packing, and CDC required by the target memory subsystem.
+The memory adaptor repository owns translation from the beat-based native cache memory side into a SoC bus protocol. It also owns bus-specific burst encoding, burst coalescing, and CDC required by the target memory subsystem.

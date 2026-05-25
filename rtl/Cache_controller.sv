@@ -41,6 +41,8 @@ module Cache_controller #(
         output [31:0] ram_read_addr,
         output [31:0] ram_write_addr,
         output [7:0] ram_read_beat_index,
+        output [7:0] ram_write_beat_index,
+        output [7:0] ram_write_burst_len,
         output reg ram_read,
         output miss,
         output ram_write_start,
@@ -48,7 +50,7 @@ module Cache_controller #(
         output reg [MEM_BYTE_COUNT-1:0] wr_strb,
         output reg data_cache_read,
         output reg instr_cache_read,
-        output reg memory_write,
+        output memory_write,
         output reg write_through, 
         output reg instr_write_start
         );
@@ -173,6 +175,11 @@ module Cache_controller #(
     assign line_addr_mask = {ADDR_WIDTH{1'b1}} << LINE_OFFSET_WIDTH;
     assign main_mem_read_beat_ack = transfer_data_step1 | transfer_instr_step1;
     assign ram_read_beat_index = main_mem_read_beat_index;
+    assign ram_write_beat_index = data_write_beat_index;
+    assign ram_write_burst_len = data_write_last_beat_index + 8'd1;
+    assign memory_write =
+        ((state_main_mem_write == state_main_mem_write_idle) & start_write_transfer & ~main_mem_write_done) |
+        ((state_main_mem_write == state_main_mem_write_transfer_SD) & start_write_transfer2);
     //
 
     always @(*) begin
@@ -501,7 +508,6 @@ module Cache_controller #(
             main_mem_transfer_data          <= 1'b0;
             L2_write_p1                   <= 1'b0;
             wr_strb                       <= {MEM_BYTE_COUNT{1'b0}};
-            memory_write                  <= 1'b0;
             start_write_transfer            <= 1'b0;
             start_write_transfer2           <= 1'b0;
             transfer_data_step1             <= 1'b0;
@@ -533,7 +539,6 @@ module Cache_controller #(
                     main_mem_transfer_data          <= 1'b0;
                     L2_write_p1                   <= 1'b0;
                     wr_strb                       <= {MEM_BYTE_COUNT{1'b0}};
-                    memory_write                  <= 1'b0;
                     start_write_transfer            <= 1'b0;
                     start_write_transfer2           <= 1'b0;
                     transfer_data_step1             <= 1'b0;
@@ -645,7 +650,6 @@ module Cache_controller #(
                     miss_L1_data       <= 1'b1;
                 end
                 write_through          <= 1'b1;
-                memory_write <= 1'b0;
                 state_data               <= state_data_writethrough_step0;
             end
 
@@ -688,7 +692,6 @@ module Cache_controller #(
                 ram_addr_L2_data_write   <= L1_data_addr;
                 data_write_beat_index    <= 8'b0;
                 wr_strb                  <= data_write_current_strobe;
-                memory_write             <= 1'b1;
                 if(data_write_last_beat_index != 8'b0) begin
                     state_data       <= state_data_writethrough_SD;
                 end
@@ -716,7 +719,6 @@ module Cache_controller #(
                     ram_addr_L2_data_write  <= L1_data_addr;
                     start_write_transfer    <= 1'b0;
                     start_write_transfer2   <= 1'b0;
-                    memory_write <= 1'b0;
                     if(write_through_miss) begin
                         state_data             <= state_data_miss_L1_step1;
                     end

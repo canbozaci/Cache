@@ -57,12 +57,6 @@ module cache #(
         (LINE_MEM_BEAT_COUNT == 4)  ? 8'd4  :
         (LINE_MEM_BEAT_COUNT == 8)  ? 8'd8  :
         (LINE_MEM_BEAT_COUNT == 16) ? 8'd16 : 8'd32;
-    localparam [7:0] LINE_MEM_LAST_BEAT =
-        (LINE_MEM_BEAT_COUNT == 1)  ? 8'd0  :
-        (LINE_MEM_BEAT_COUNT == 2)  ? 8'd1  :
-        (LINE_MEM_BEAT_COUNT == 4)  ? 8'd3  :
-        (LINE_MEM_BEAT_COUNT == 8)  ? 8'd7  :
-        (LINE_MEM_BEAT_COUNT == 16) ? 8'd15 : 8'd31;
     localparam BYTE_OFFSET_WIDTH = 2;
     localparam LINE_WORD_OFFSET_WIDTH = $clog2(LINE_BYTE_COUNT / 4);
     localparam LINE_OFFSET_WIDTH = $clog2(LINE_BYTE_COUNT);
@@ -93,6 +87,8 @@ module cache #(
     wire mem_read_internal;
     wire mem_write_internal;
     wire [7:0] mem_read_beat_index_internal;
+    wire [7:0] mem_write_beat_index_internal;
+    wire [7:0] mem_write_burst_len_internal;
     wire [31:0] mem_read_addr_internal;
     wire [31:0] mem_write_addr_internal;
 
@@ -126,11 +122,15 @@ module cache #(
 
     assign mem_req_valid = mem_read_internal | mem_write_internal;
     assign mem_req_write = mem_write_internal;
-    assign mem_req_burst = mem_read_internal & ~mem_write_internal & (LINE_MEM_BEAT_COUNT != 1);
-    assign mem_req_burst_len = mem_req_burst ? LINE_MEM_BEAT_COUNT_8 : 8'd1;
-    assign mem_req_beat_index = mem_req_burst ? mem_read_beat_index_internal : 8'd0;
-    assign mem_req_burst_start = mem_req_burst & (mem_read_beat_index_internal == 8'd0);
-    assign mem_req_burst_last = mem_req_burst & (mem_read_beat_index_internal == LINE_MEM_LAST_BEAT);
+    assign mem_req_burst = (mem_read_internal & ~mem_write_internal & (LINE_MEM_BEAT_COUNT != 1)) |
+                           (mem_write_internal & (mem_write_burst_len_internal != 8'd1));
+    assign mem_req_burst_len = mem_write_internal ? mem_write_burst_len_internal :
+                               ((mem_read_internal & (LINE_MEM_BEAT_COUNT != 1)) ? LINE_MEM_BEAT_COUNT_8 : 8'd1);
+    assign mem_req_beat_index = mem_write_internal ? mem_write_beat_index_internal :
+                                ((mem_read_internal & (LINE_MEM_BEAT_COUNT != 1)) ? mem_read_beat_index_internal : 8'd0);
+    assign mem_req_burst_start = mem_req_burst & (mem_req_beat_index == 8'd0);
+    assign mem_req_burst_last = mem_req_burst &
+                                (mem_req_beat_index == (mem_req_burst_len - 8'd1));
     assign mem_req_addr = mem_write_internal ? mem_write_addr_internal : mem_read_addr_internal;
     assign mem_req_wdata = mem_write_internal ? mem_req_wdata_aligned : mem_wdata_internal;
     assign mem_req_wstrb = mem_wstrb_internal;
@@ -318,6 +318,8 @@ module cache #(
         .ram_read_addr(mem_read_addr_internal),
         .ram_write_addr(mem_write_addr_internal),
         .ram_read_beat_index(mem_read_beat_index_internal),
+        .ram_write_beat_index(mem_write_beat_index_internal),
+        .ram_write_burst_len(mem_write_burst_len_internal),
         .ram_read(mem_read_internal),
         .miss(controller_busy),
         .ram_write_start(mem_write_start),

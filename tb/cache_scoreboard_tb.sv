@@ -65,6 +65,9 @@ module cache_scoreboard_tb #(
     integer reference_word_index;
     integer reference_byte_index;
     reg [31:0] reference_word_value;
+    reg [7:0] expected_write_burst_len;
+    reg [7:0] expected_write_beat_index;
+    reg write_burst_check_active;
 
     assign mem_req_ready = (MEM_READY_STALLS == 0) ? 1'b1 : (mem_ready_counter != 2'd1);
 
@@ -139,12 +142,26 @@ module cache_scoreboard_tb #(
     always @(posedge clk) begin
         if (!rst && mem_req_valid && mem_req_ready) begin
             if (mem_req_write) begin
-                if (mem_req_burst || (mem_req_burst_len != 8'd1) || (mem_req_beat_index != 8'd0) ||
-                    mem_req_burst_start || mem_req_burst_last) begin
+                if (write_burst_check_active && (mem_req_burst_len != expected_write_burst_len)) begin
+                    $display("BURST MISMATCH: write len expected=%0d actual=%0d",
+                             expected_write_burst_len, mem_req_burst_len);
+                    error_count = error_count + 1;
+                end
+                if (write_burst_check_active && (mem_req_beat_index != expected_write_beat_index)) begin
+                    $display("BURST MISMATCH: write beat expected=%0d actual=%0d",
+                             expected_write_beat_index, mem_req_beat_index);
+                    error_count = error_count + 1;
+                end
+                if ((mem_req_burst != (mem_req_burst_len != 8'd1)) ||
+                    (mem_req_burst_start != (mem_req_burst && (mem_req_beat_index == 8'd0))) ||
+                    (mem_req_burst_last != (mem_req_burst && (mem_req_beat_index == (mem_req_burst_len - 8'd1))))) begin
                     $display("BURST MISMATCH: write metadata burst=%0b len=%0d beat=%0d start=%0b last=%0b",
                              mem_req_burst, mem_req_burst_len, mem_req_beat_index,
                              mem_req_burst_start, mem_req_burst_last);
                     error_count = error_count + 1;
+                end
+                if (write_burst_check_active && (expected_write_beat_index != expected_write_burst_len)) begin
+                    expected_write_beat_index = expected_write_beat_index + 8'd1;
                 end
             end else if (LINE_MEM_BEAT_COUNT == 1) begin
                 if (mem_req_burst || (mem_req_burst_len != 8'd1) || (mem_req_beat_index != 8'd0) ||
@@ -228,6 +245,9 @@ module cache_scoreboard_tb #(
         data_req_wdata = {DATA_WIDTH{1'b0}};
         data_req_wstrb = {(DATA_WIDTH/8){1'b0}};
         error_count = 0;
+        expected_write_burst_len = 8'd1;
+        expected_write_beat_index = 8'd0;
+        write_burst_check_active = 1'b0;
     end
     endtask
 
@@ -388,6 +408,10 @@ module cache_scoreboard_tb #(
         input [(DATA_WIDTH/8)-1:0] write_strobe;
         input [1023:0] label;
     begin
+        expected_write_burst_len = expected_write_burst_length(addr, write_strobe);
+        expected_write_beat_index = 8'd0;
+        write_burst_check_active = 1'b1;
+
         @(negedge clk);
         data_req_addr = addr;
         data_req_wdata = write_data;
@@ -399,11 +423,32 @@ module cache_scoreboard_tb #(
         data_req_write = 1'b0;
 
         wait_for_idle(label);
+        write_burst_check_active = 1'b0;
         update_reference_write(addr, write_data, write_strobe);
         data_req_wstrb = {(DATA_WIDTH/8){1'b0}};
         data_req_wdata = {DATA_WIDTH{1'b0}};
     end
     endtask
+
+    function [7:0] expected_write_burst_length;
+        input [ADDR_WIDTH-1:0] addr;
+        input [(DATA_WIDTH/8)-1:0] write_strobe;
+        integer byte_lane;
+        integer byte_offset;
+        integer beat_candidate;
+        reg [7:0] last_beat_index;
+    begin
+        last_beat_index = 8'd0;
+        for (byte_lane = 0; byte_lane < (DATA_WIDTH / 8); byte_lane = byte_lane + 1) begin
+            byte_offset = byte_lane + (({{(32-ADDR_WIDTH){1'b0}}, addr}) % (MEM_DATA_WIDTH / 8));
+            beat_candidate = byte_offset / (MEM_DATA_WIDTH / 8);
+            if (write_strobe[byte_lane] && (beat_candidate > {24'b0, last_beat_index})) begin
+                last_beat_index = beat_candidate[7:0];
+            end
+        end
+        expected_write_burst_length = last_beat_index + 8'd1;
+    end
+    endfunction
 
     task compare_data;
         input [1023:0] label;

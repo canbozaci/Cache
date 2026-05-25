@@ -26,7 +26,8 @@ For the default configuration:
 | Memory-side byte lanes | `MEM_DATA_WIDTH / 8` | 4 |
 | Line bytes | `LINE_WIDTH / 8` | 16 |
 | Memory beats per line | `LINE_WIDTH / MEM_DATA_WIDTH` | 4 |
-| Native burst length | `LINE_WIDTH / MEM_DATA_WIDTH` for line fills, otherwise 1 | 4 |
+| Native read burst length | `LINE_WIDTH / MEM_DATA_WIDTH` for line fills, otherwise 1 | 4 |
+| Native write burst length | Memory beats touched by data write strobes | 1 to 3 in current directed tests |
 | L1 word offset bits | `log2((LINE_WIDTH / 8) / 4)` | 2 |
 | Line byte offset bits | `log2(LINE_WIDTH / 8)` | 4 |
 | L1 tag width | `ADDR_WIDTH - L1_INDEX_WIDTH - L1_WORD_OFFSET_WIDTH - 2` | 9 |
