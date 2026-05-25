@@ -1,6 +1,26 @@
-# Cache
+# Cache SystemVerilog IP
 
-Reusable SystemVerilog cache soft IP cleanup workspace.
+Reusable, non-coherent, blocking, write-through SystemVerilog cache subsystem for embedded and single-core integration.
+
+This repository contains the generic cache IP only. CPU-side protocol adaptation, ISA-specific load/store formatting, memory bus adaptation, CDC, and SoC-specific integration logic belong in external adaptor repositories or the integrating project.
+
+## Supported Profile
+
+- Single cache clock.
+- Non-coherent instruction/data L1 behavior. Software or integration logic must invalidate affected instruction lines before fetching data-side writes as instructions.
+- Write-through data writes.
+- Blocking command-style CPU-side interface using `busy` as the cache-level back-pressure signal.
+- Native beat-based memory request/response interface with ready/valid handshakes and generic burst metadata.
+- External CPU and memory adaptors; no ISA-specific or bus-specific adaptor is built into this repository.
+
+## Not Supported Yet
+
+- SMP coherency.
+- DMA coherency.
+- Built-in AXI, AHB, or TileLink bus adapters.
+- Write-back mode.
+- Multiple outstanding misses.
+- ECC or parity.
 
 ## Current Status
 

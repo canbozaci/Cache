@@ -1,5 +1,27 @@
 # Cache Architecture
 
+## Product Profile
+
+`cache` is a reusable, non-coherent, blocking, write-through SystemVerilog cache subsystem for embedded and single-core integration.
+
+Supported profile:
+
+- Single cache clock.
+- Non-coherent instruction/data L1 behavior.
+- Write-through data writes.
+- Blocking command-style CPU-side interface.
+- Native beat-based memory request/response interface.
+- External CPU and memory adaptors.
+
+Not supported yet:
+
+- SMP coherency.
+- DMA coherency.
+- Built-in AXI, AHB, or TileLink bus adapters.
+- Write-back mode.
+- Multiple outstanding misses.
+- ECC or parity.
+
 ## Repository Boundaries
 
 This repository contains only the reusable generic cache IP. CPU-side and memory-side bus adaptors are intentionally kept in sibling repositories.
