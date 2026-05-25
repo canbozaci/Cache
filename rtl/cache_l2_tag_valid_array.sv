@@ -11,8 +11,11 @@ module cache_l2_tag_valid_array#(
   input rst,
   input we_p1, // port 1 write enable signal (data cache)
   input we_p2, // port 2 write enable signal (instruction cache)
+  input invalidate,
   input [ADDR_WIDTH-1:0] addr_p1, // port 1 address
   input [ADDR_WIDTH-1:0] addr_p2, // port 2 address
+  input [ADDR_WIDTH-1:0] invalidate_addr,
+  input [DATA_WIDTH-2:0] invalidate_tag,
   input [DATA_WIDTH-1:0] write_data_p1, // port 1 data in
   input [DATA_WIDTH-1:0] write_data_p2, // port 2 data in
   output reg [DATA_WIDTH-1:0] read_data_p1, // data out port 1
@@ -32,6 +35,10 @@ module cache_l2_tag_valid_array#(
       read_data_p1 <= {DATA_WIDTH{1'b0}};
       read_data_p2 <= {DATA_WIDTH{1'b0}};
     end else begin
+      if (invalidate && ram_block[invalidate_addr][DATA_WIDTH-1] &&
+          (ram_block[invalidate_addr][DATA_WIDTH-2:0] == invalidate_tag)) begin
+        ram_block[invalidate_addr][DATA_WIDTH-1] <= 1'b0;
+      end
       if(we_p1) begin
         ram_block[addr_p1][DATA_WIDTH-1:0] <= write_data_p1[DATA_WIDTH-1:0];
       end

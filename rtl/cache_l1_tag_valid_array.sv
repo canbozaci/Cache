@@ -11,7 +11,10 @@ module cache_l1_tag_valid_array#(
   input  clk, // clock input
   input  rst,
   input  we, // write enable input
+  input  invalidate,
   input  [ADDR_WIDTH-1:0] addr, // address input
+  input  [ADDR_WIDTH-1:0] invalidate_addr,
+  input  [DATA_WIDTH-2:0] invalidate_tag,
   input  [DATA_WIDTH-1:0] write_data, // data input
   output reg [DATA_WIDTH-1:0] read_data // data output
   );
@@ -28,6 +31,10 @@ module cache_l1_tag_valid_array#(
       end
       read_data <= {DATA_WIDTH{1'b0}};
     end else begin
+      if (invalidate && mem[invalidate_addr][DATA_WIDTH-1] &&
+          (mem[invalidate_addr][DATA_WIDTH-2:0] == invalidate_tag)) begin
+        mem[invalidate_addr][DATA_WIDTH-1] <= 1'b0;
+      end
       if (we) begin
         mem[addr][DATA_WIDTH-1:0] <= write_data[DATA_WIDTH-1:0];
       end
@@ -36,4 +43,3 @@ module cache_l1_tag_valid_array#(
   end
 
   endmodule
-

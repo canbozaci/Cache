@@ -23,7 +23,8 @@
 - The line-boundary contract is defined: one data request must not cross a cache-line boundary.
 - The scoreboard now covers one-beat, two-beat, and unaligned three-beat write-through cases across the current width matrix.
 - The scoreboard includes a ready-stall memory run.
-- Runtime flush is defined as a write-through no-op, and runtime invalidate clears the cache arrays while idle.
+- Runtime global flush is defined as a write-through no-op, and runtime global invalidate clears the cache arrays while idle.
+- Address-selective line flush/invalidate is implemented for idle maintenance; line flush is a write-through no-op, and line invalidate clears matching tag/valid entries in L1 data, L1 instruction, and L2.
 
 ## Remaining Design Gaps
 
@@ -33,7 +34,7 @@
 - CDC is intentionally outside the generic cache; asynchronous clock crossing must be implemented in a memory adaptor.
 - Bus-specific burst semantics are not implemented in the cache; adaptors must translate generic burst metadata into the target bus protocol.
 - Instruction and data L1 caches are not coherent with each other after data-side writes.
-- Maintenance is currently global idle-only flush/invalidate; address-selective line maintenance is not implemented.
+- Maintenance is still idle-only; maintenance during active cache traffic is not implemented.
 - ASIC SRAM macro replacement wrappers and read/write behavior assumptions are not defined.
 
 ## Remaining Verification Gaps
@@ -44,6 +45,7 @@
 - Replacement, eviction, same-index dual-port, and write-through corner cases need focused tests.
 - There are no block-level self-checking tests for arrays, replacement modules, load/store helpers, or controller subflows.
 - Native memory verification has a ready-stall run, but does not yet cover broad response-latency patterns.
+- Maintenance line flush/invalidate is covered for directed cases, but illegal request combinations need dedicated negative tests.
 - Generic line-fill and write-through burst metadata are checked by the scoreboard, but bus-specific burst coalescing must be verified in memory-adaptor repositories.
 - Reset-during-transaction and repeated-reset scenarios are not covered.
 - Assertions and functional coverage are missing.
@@ -80,5 +82,4 @@ P2 before release maturity:
 
 - Add protocol assertions and functional coverage.
 - Define ASIC SRAM macro wrappers and memory behavior assumptions.
-- Add address-selective line flush/invalidate if instruction/data coherency or runtime maintenance requires it.
 - Clean remaining historical module names after verification protects the behavior.

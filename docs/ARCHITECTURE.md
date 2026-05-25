@@ -18,7 +18,7 @@ rtl/                     All synthesizable cache RTL
 - Instruction side: valid plus byte address, returning raw 32-bit fetch data.
 - Data side: read/write command, byte address, raw write data, byte write strobes, and raw read data.
 - Memory side: single-clock native request/response interface for line fills and write-through traffic.
-- Maintenance side: idle-only flush and invalidate requests.
+- Maintenance side: idle-only global and address-selective line flush/invalidate requests.
 
 The cache does not consume ISA-specific load/store encoding values and does not perform sign extension.
 
@@ -45,6 +45,20 @@ The native memory response channel is:
 - `mem_rsp_rdata`
 
 Writes complete when the request is accepted. Reads complete when the response is valid.
+
+The maintenance channel is:
+
+- `maint_flush_req`
+- `maint_invalidate_req`
+- `maint_flush_line_req`
+- `maint_invalidate_line_req`
+- `maint_addr_valid`
+- `maint_addr`
+- `maint_ready`
+- `maint_done`
+- `maint_error`
+
+Maintenance operations are accepted only while `maint_ready` is high. Global invalidate clears cache valid state. Global flush is a no-op because the cache is write-through. Address-selective line invalidate clears matching tag/valid entries for `maint_addr` in L1 data, L1 instruction, and L2. Address-selective line flush is also a write-through no-op. Global and line requests must not be asserted together; line requests require `maint_addr_valid`.
 
 The native cache memory interface is beat-based with burst metadata:
 

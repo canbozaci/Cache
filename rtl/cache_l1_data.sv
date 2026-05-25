@@ -17,6 +17,8 @@ module cache_l1_data#( // L1 data cache top module
     input write,
     input write_L2,
     input write_through,
+    input invalidate_line,
+    input [TAG_WIDTH+INDEX_WIDTH-1:0] invalidate_tag_and_idx,
     input [TAG_WIDTH+INDEX_WIDTH+WORD_OFFSET_WIDTH+BYTE_OFFSET_WIDTH-1:0] addr,
     input [DATA_WIDTH-1:0] write_data,
     input [(DATA_WIDTH/8)-1:0] write_strobe,
@@ -50,7 +52,6 @@ module cache_l1_data#( // L1 data cache top module
     assign idx_input    = addr[INDEX_WIDTH + WORD_OFFSET_WIDTH + BYTE_OFFSET_WIDTH - 1:WORD_OFFSET_WIDTH+BYTE_OFFSET_WIDTH];
     assign word_input   = addr[WORD_OFFSET_WIDTH+BYTE_OFFSET_WIDTH -1 :BYTE_OFFSET_WIDTH];
     assign offset_input = addr[BYTE_OFFSET_WIDTH-1:0];
-
     assign we_set2 = write & we_s2;
     assign we_set1 = write & we_s1;
     assign hit = ((read | write) & (hit_s1 | hit_s2)) & (~rst);
@@ -68,6 +69,8 @@ module cache_l1_data#( // L1 data cache top module
         .block_write(data_in_write),
         .tag_and_idx({tag_input,idx_input}),
         .we(we_set1),
+        .invalidate(invalidate_line),
+        .invalidate_tag_and_idx(invalidate_tag_and_idx),
         .byte_enable(byte_enable),
         .block_read(data_out_s1),
         .valid(valid_out_s1),
@@ -86,6 +89,8 @@ module cache_l1_data#( // L1 data cache top module
         .block_write(data_in_write),
         .tag_and_idx({tag_input,idx_input}),
         .we(we_set2),
+        .invalidate(invalidate_line),
+        .invalidate_tag_and_idx(invalidate_tag_and_idx),
         .byte_enable(byte_enable),
         .block_read(data_out_s2),
         .valid(valid_out_s2),

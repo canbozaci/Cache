@@ -11,6 +11,8 @@ module cache_l1_data_way#(
     input [LINE_WIDTH-1:0] block_write,
     input [TAG_WIDTH + INDEX_WIDTH-1:0] tag_and_idx,
     input we,
+    input invalidate,
+    input [TAG_WIDTH + INDEX_WIDTH-1:0] invalidate_tag_and_idx,
     input [LINE_BYTE_COUNT-1:0] byte_enable,
     output [LINE_WIDTH-1:0] block_read,
     output valid,
@@ -38,7 +40,10 @@ module cache_l1_data_way#(
         .clk(clk),
         .rst(rst),
         .we(we),
+        .invalidate(invalidate),
         .addr(tag_and_idx[INDEX_WIDTH-1:0]),
+        .invalidate_addr(invalidate_tag_and_idx[INDEX_WIDTH-1:0]),
+        .invalidate_tag(invalidate_tag_and_idx[TAG_WIDTH + INDEX_WIDTH - 1:INDEX_WIDTH]),
         .write_data({1'b1, tag_and_idx[TAG_WIDTH + INDEX_WIDTH - 1:INDEX_WIDTH]}),
         .read_data({valid,tag})
     );

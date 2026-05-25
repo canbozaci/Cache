@@ -14,6 +14,8 @@ module cache_scoreboard_tb #(
     localparam REF_WORDS = REF_BYTES / 4;
     localparam MEM_ADDR_LSB = (MEM_DATA_WIDTH == 64) ? 3 : 2;
     localparam LINE_MEM_BEAT_COUNT = LINE_WIDTH / MEM_DATA_WIDTH;
+    localparam LINE_BYTE_COUNT = LINE_WIDTH / 8;
+    localparam [ADDR_WIDTH-1:0] NEXT_LINE_ADDR = LINE_BYTE_COUNT;
     localparam [7:0] LINE_MEM_BEAT_COUNT_8 =
         (LINE_MEM_BEAT_COUNT == 1)  ? 8'd1  :
         (LINE_MEM_BEAT_COUNT == 2)  ? 8'd2  :
@@ -31,6 +33,10 @@ module cache_scoreboard_tb #(
     reg rst;
     reg maint_flush_req;
     reg maint_invalidate_req;
+    reg maint_flush_line_req;
+    reg maint_invalidate_line_req;
+    reg maint_addr_valid;
+    reg [ADDR_WIDTH-1:0] maint_addr;
     reg [1:0] mem_ready_counter;
 
     reg instr_req_valid;
@@ -66,6 +72,7 @@ module cache_scoreboard_tb #(
     integer error_count;
     integer reference_word_index;
     integer reference_byte_index;
+    integer mem_read_handshake_count;
     reg [31:0] reference_word_value;
     reg [7:0] expected_write_burst_len;
     reg [7:0] expected_write_beat_index;
@@ -123,6 +130,10 @@ module cache_scoreboard_tb #(
         .mem_rsp_rdata(mem_rsp_rdata),
         .maint_flush_req(maint_flush_req),
         .maint_invalidate_req(maint_invalidate_req),
+        .maint_flush_line_req(maint_flush_line_req),
+        .maint_invalidate_line_req(maint_invalidate_line_req),
+        .maint_addr_valid(maint_addr_valid),
+        .maint_addr(maint_addr),
         .maint_ready(maint_ready),
         .maint_done(maint_done),
         .maint_error(maint_error),
@@ -139,6 +150,9 @@ module cache_scoreboard_tb #(
             mem_ready_counter <= mem_ready_counter + 2'd1;
             if (mem_rsp_ready) begin
                 mem_rsp_valid <= mem_req_valid && mem_req_ready && !mem_req_write;
+            end
+            if (mem_req_valid && mem_req_ready && !mem_req_write) begin
+                mem_read_handshake_count <= mem_read_handshake_count + 1;
             end
         end
     end
@@ -199,6 +213,7 @@ module cache_scoreboard_tb #(
         expect_data_read(19'h00000, "data cold line 0 word 0");
         expect_data_read(19'h00004, "data hit line 0 word 1");
         expect_data_read(19'h00008, "data hit line 0 word 2");
+        check_line_maintenance_contract();
         expect_data_read(19'h00020, "data cold line 2 word 0");
 
         expect_instr_read(19'h00000, "instruction cold line 0 word 0");
@@ -239,8 +254,13 @@ module cache_scoreboard_tb #(
         rst = 1'b1;
         maint_flush_req = 1'b0;
         maint_invalidate_req = 1'b0;
+        maint_flush_line_req = 1'b0;
+        maint_invalidate_line_req = 1'b0;
+        maint_addr_valid = 1'b0;
+        maint_addr = {ADDR_WIDTH{1'b0}};
         mem_ready_counter = 2'b0;
         mem_rsp_valid = 1'b0;
+        mem_read_handshake_count = 0;
         instr_req_valid = 1'b0;
         data_req_read = 1'b0;
         data_req_write = 1'b0;
@@ -283,6 +303,101 @@ module cache_scoreboard_tb #(
         @(negedge clk);
         maint_invalidate_req = 1'b0;
         wait_for_idle("maintenance idle exit");
+    end
+    endtask
+
+    task check_line_maintenance_contract;
+        integer reads_before;
+        integer reads_after;
+    begin
+        wait_for_idle("line maintenance idle entry");
+
+        reads_before = mem_read_handshake_count;
+        expect_data_read(19'h00000, "line maintenance pre-hit line 0");
+        reads_after = mem_read_handshake_count;
+        if (reads_after != reads_before) begin
+            $display("MAINT LINE MISMATCH: expected pre-hit without memory read, before=%0d after=%0d",
+                     reads_before, reads_after);
+            error_count = error_count + 1;
+        end
+
+        apply_line_invalidate(NEXT_LINE_ADDR, "line invalidate different line");
+        reads_before = mem_read_handshake_count;
+        expect_data_read(19'h00000, "line maintenance hit after other-line invalidate");
+        reads_after = mem_read_handshake_count;
+        if (reads_after != reads_before) begin
+            $display("MAINT LINE MISMATCH: other-line invalidate evicted line 0, before=%0d after=%0d",
+                     reads_before, reads_after);
+            error_count = error_count + 1;
+        end
+
+        apply_line_flush(19'h00000, "line flush no-op");
+        reads_before = mem_read_handshake_count;
+        expect_data_read(19'h00000, "line maintenance hit after line flush");
+        reads_after = mem_read_handshake_count;
+        if (reads_after != reads_before) begin
+            $display("MAINT LINE MISMATCH: line flush caused refill, before=%0d after=%0d",
+                     reads_before, reads_after);
+            error_count = error_count + 1;
+        end
+
+        apply_line_invalidate(19'h00000, "line invalidate line 0");
+        reads_before = mem_read_handshake_count;
+        expect_data_read(19'h00000, "line maintenance refill after line invalidate");
+        reads_after = mem_read_handshake_count;
+        if (reads_after == reads_before) begin
+            $display("MAINT LINE MISMATCH: line invalidate did not force memory refill");
+            error_count = error_count + 1;
+        end
+        wait_for_idle("line maintenance idle exit");
+    end
+    endtask
+
+    task apply_line_flush;
+        input [ADDR_WIDTH-1:0] addr;
+        input [1023:0] label;
+    begin
+        wait_for_idle(label);
+        @(negedge clk);
+        maint_addr = addr;
+        maint_addr_valid = 1'b1;
+        maint_flush_line_req = 1'b1;
+        @(posedge clk);
+        @(posedge clk);
+        if (!maint_ready || !maint_done || maint_error) begin
+            $display("MAINT LINE MISMATCH: flush line ready=%0b done=%0b error=%0b",
+                     maint_ready, maint_done, maint_error);
+            error_count = error_count + 1;
+        end
+        @(negedge clk);
+        maint_flush_line_req = 1'b0;
+        maint_addr_valid = 1'b0;
+        maint_addr = {ADDR_WIDTH{1'b0}};
+        wait_for_idle(label);
+    end
+    endtask
+
+    task apply_line_invalidate;
+        input [ADDR_WIDTH-1:0] addr;
+        input [1023:0] label;
+    begin
+        wait_for_idle(label);
+        @(negedge clk);
+        maint_addr = addr;
+        maint_addr_valid = 1'b1;
+        maint_invalidate_line_req = 1'b1;
+        @(posedge clk);
+        @(posedge clk);
+        if (!maint_ready || !maint_done || maint_error) begin
+            $display("MAINT LINE MISMATCH: invalidate line ready=%0b done=%0b error=%0b",
+                     maint_ready, maint_done, maint_error);
+            error_count = error_count + 1;
+        end
+        @(negedge clk);
+        maint_invalidate_line_req = 1'b0;
+        maint_addr_valid = 1'b0;
+        maint_addr = {ADDR_WIDTH{1'b0}};
+        wait_for_idle(label);
     end
     endtask
 
