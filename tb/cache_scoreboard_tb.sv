@@ -213,6 +213,8 @@ module cache_scoreboard_tb #(
         reset_dut();
 
         check_maintenance_contract();
+        check_illegal_maintenance_contract();
+        check_reset_contract();
 
         expect_data_read(19'h00000, "data cold line 0 word 0");
         expect_data_read(19'h00004, "data hit line 0 word 1");
@@ -223,6 +225,7 @@ module cache_scoreboard_tb #(
 
         expect_instr_read(19'h00000, "instruction cold line 0 word 0");
         expect_instr_read(19'h00004, "instruction hit line 0 word 1");
+        check_instruction_data_incoherency_contract();
 
         apply_data_write(19'h00000, 64'h0000_0000_0000_00a5, 8'h01, "single byte write at line base");
         expect_data_read(19'h00000, "read after single byte write");
@@ -277,6 +280,51 @@ module cache_scoreboard_tb #(
         expected_write_burst_len = 8'd1;
         expected_write_beat_index = 8'd0;
         write_burst_check_active = 1'b0;
+    end
+    endtask
+
+    task check_illegal_maintenance_contract;
+    begin
+        wait_for_idle("illegal maintenance idle entry");
+
+        apply_illegal_maintenance(1'b1, 1'b1, 1'b0, 1'b0, 1'b0, {ADDR_WIDTH{1'b0}},
+                                  "global flush plus invalidate");
+        apply_illegal_maintenance(1'b0, 1'b0, 1'b1, 1'b1, 1'b1, {ADDR_WIDTH{1'b0}},
+                                  "line flush plus invalidate");
+        apply_illegal_maintenance(1'b1, 1'b0, 1'b1, 1'b0, 1'b1, {ADDR_WIDTH{1'b0}},
+                                  "global plus line maintenance");
+        apply_illegal_maintenance(1'b0, 1'b0, 1'b0, 1'b1, 1'b0, {ADDR_WIDTH{1'b0}},
+                                  "line maintenance without address");
+
+        wait_for_idle("illegal maintenance idle exit");
+    end
+    endtask
+
+    task apply_illegal_maintenance;
+        input flush_req;
+        input invalidate_req;
+        input flush_line_req;
+        input invalidate_line_req;
+        input addr_valid;
+        input [ADDR_WIDTH-1:0] addr;
+        input [1023:0] label;
+    begin
+        @(negedge clk);
+        maint_flush_req = flush_req;
+        maint_invalidate_req = invalidate_req;
+        maint_flush_line_req = flush_line_req;
+        maint_invalidate_line_req = invalidate_line_req;
+        maint_addr_valid = addr_valid;
+        maint_addr = addr;
+        wait_for_maintenance_error(label);
+        @(negedge clk);
+        maint_flush_req = 1'b0;
+        maint_invalidate_req = 1'b0;
+        maint_flush_line_req = 1'b0;
+        maint_invalidate_line_req = 1'b0;
+        maint_addr_valid = 1'b0;
+        maint_addr = {ADDR_WIDTH{1'b0}};
+        wait_for_idle(label);
     end
     endtask
 
@@ -405,6 +453,29 @@ module cache_scoreboard_tb #(
     end
     endtask
 
+    task wait_for_maintenance_error;
+        input [1023:0] label;
+        integer timeout_count;
+    begin
+        timeout_count = 0;
+        @(posedge clk);
+        while (!maint_done && !maint_error) begin
+            @(posedge clk);
+            timeout_count = timeout_count + 1;
+            if (timeout_count > 1000) begin
+                $display("TIMEOUT: %0s illegal maintenance did not complete", label);
+                error_count = error_count + 1;
+                disable wait_for_maintenance_error;
+            end
+        end
+        if (!maint_ready || maint_done || !maint_error) begin
+            $display("MAINT NEGATIVE MISMATCH: %0s ready=%0b done=%0b error=%0b",
+                     label, maint_ready, maint_done, maint_error);
+            error_count = error_count + 1;
+        end
+    end
+    endtask
+
     task check_busy_maintenance_contract;
         integer reads_before;
         integer reads_after;
@@ -482,6 +553,54 @@ module cache_scoreboard_tb #(
     end
     endtask
 
+    task apply_reset_pulse;
+        input integer reset_cycles;
+    begin
+        @(negedge clk);
+        rst = 1'b1;
+        instr_req_valid = 1'b0;
+        data_req_read = 1'b0;
+        data_req_write = 1'b0;
+        maint_flush_req = 1'b0;
+        maint_invalidate_req = 1'b0;
+        maint_flush_line_req = 1'b0;
+        maint_invalidate_line_req = 1'b0;
+        maint_addr_valid = 1'b0;
+        maint_addr = {ADDR_WIDTH{1'b0}};
+        data_req_wstrb = {(DATA_WIDTH/8){1'b0}};
+        data_req_wdata = {DATA_WIDTH{1'b0}};
+        repeat (reset_cycles) @(posedge clk);
+        @(negedge clk);
+        rst = 1'b0;
+        repeat (8) @(posedge clk);
+    end
+    endtask
+
+    task check_reset_contract;
+    begin
+        wait_for_idle("reset contract idle entry");
+
+        @(negedge clk);
+        data_req_addr = NEXT_LINE_ADDR + NEXT_LINE_ADDR;
+        data_req_read = 1'b1;
+        @(posedge clk);
+        @(posedge clk);
+        if (!busy && !mem_req_valid) begin
+            $display("RESET MISMATCH: expected transaction before reset pulse");
+            error_count = error_count + 1;
+        end
+        apply_reset_pulse(4);
+        wait_for_idle("reset during transaction recovery");
+        expect_data_read(NEXT_LINE_ADDR + NEXT_LINE_ADDR, "read after reset during transaction");
+
+        apply_reset_pulse(2);
+        apply_reset_pulse(3);
+        apply_reset_pulse(1);
+        wait_for_idle("repeated reset recovery");
+        expect_instr_read(NEXT_LINE_ADDR + NEXT_LINE_ADDR + NEXT_LINE_ADDR, "instruction read after repeated reset");
+    end
+    endtask
+
     task wait_for_idle;
         input [1023:0] label;
         integer timeout_count;
@@ -554,6 +673,44 @@ module cache_scoreboard_tb #(
         @(negedge clk);
         instr_req_valid = 1'b0;
         wait_for_idle(label);
+    end
+    endtask
+
+    task expect_instr_value;
+        input [ADDR_WIDTH-1:0] addr;
+        input [31:0] expected_instr;
+        input [1023:0] label;
+    begin
+        @(negedge clk);
+        instr_req_addr = addr;
+        instr_req_valid = 1'b1;
+        wait_for_read_response(label);
+        compare_instr(label, addr, expected_instr, instr_resp_data);
+        @(negedge clk);
+        instr_req_valid = 1'b0;
+        wait_for_idle(label);
+    end
+    endtask
+
+    task check_instruction_data_incoherency_contract;
+        reg [31:0] stale_instr;
+        reg [DATA_WIDTH-1:0] write_data;
+        reg [(DATA_WIDTH/8)-1:0] write_strobe;
+        reg [ADDR_WIDTH-1:0] test_addr;
+    begin
+        test_addr = NEXT_LINE_ADDR + NEXT_LINE_ADDR + NEXT_LINE_ADDR + NEXT_LINE_ADDR;
+        stale_instr = read_reference32(test_addr);
+        expect_instr_read(test_addr, "i/d coherency prime instruction line");
+
+        write_data = {DATA_WIDTH{1'b0}};
+        write_strobe = {(DATA_WIDTH/8){1'b0}};
+        write_data[7:0] = stale_instr[7:0] ^ 8'h5a;
+        write_strobe[0] = 1'b1;
+        apply_data_write(test_addr, write_data, write_strobe, "i/d coherency data-side write");
+
+        expect_instr_value(test_addr, stale_instr, "i/d coherency documented stale instruction hit");
+        apply_line_invalidate(test_addr, "i/d coherency line invalidate recovery");
+        expect_instr_read(test_addr, "i/d coherency instruction refill after invalidate");
     end
     endtask
 

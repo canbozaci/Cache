@@ -6,7 +6,7 @@
 - Active RTL is under `rtl/`, uses `.sv`, and builds from `filelists/rtl.f`.
 - Public integration top is `cache`.
 - CI is configured on GitHub Actions for the cleanup branch using a current checkout action.
-- `make verify` runs compile, lint/style, smoke simulation, thirteen scoreboard configurations, and parameter compile sweep.
+- `make verify` runs compile, lint/style, smoke simulation, fourteen scoreboard configurations, and parameter compile sweep.
 - `cache` is single-clock; `mem_clk` has been removed from the public cache interface.
 - Native memory traffic uses a single-clock, beat-based request/response interface with request ready and response valid handshakes.
 - Native memory line-fill reads expose generic burst metadata: burst valid, total beat count, beat index, first beat, and last beat.
@@ -26,6 +26,7 @@
 - Runtime global flush is defined as a write-through no-op, and runtime global invalidate clears the cache arrays while idle.
 - Maintenance requests use an intentional fixed single-entry queue and may be accepted while cache traffic is active.
 - Address-selective line flush/invalidate is implemented; line flush is a write-through no-op, and line invalidate clears matching tag/valid entries in L1 data, L1 instruction, and L2.
+- The scoreboard covers illegal maintenance request combinations, reset during active traffic, repeated reset recovery, and the documented unsupported I/D coherency behavior.
 
 ## Remaining Design Gaps
 
@@ -46,11 +47,8 @@
 - Replacement, eviction, same-index dual-port, and write-through corner cases need focused tests.
 - There are no block-level self-checking tests for arrays, replacement modules, load/store helpers, or controller subflows.
 - Native memory verification has a ready-stall run, but does not yet cover broad response-latency patterns.
-- Maintenance line flush/invalidate and one busy-traffic queued request are covered for directed cases, but illegal request combinations need dedicated negative tests.
 - Generic line-fill and write-through burst metadata are checked by the scoreboard, but bus-specific burst coalescing must be verified in memory-adaptor repositories.
-- Reset-during-transaction and repeated-reset scenarios are not covered.
 - Assertions and functional coverage are missing.
-- Unsupported instruction/data coherency behavior is documented but not locked by a dedicated contract test.
 
 ## Remaining Documentation Gaps
 
