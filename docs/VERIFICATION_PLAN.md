@@ -8,6 +8,20 @@
 - RTL style checks and Verilator lint.
 - Directed smoke simulation with the native memory model.
 
+## Block Tests
+
+`make block-tests` builds and runs `tb/cache_block_tb.sv`.
+
+The block tests check:
+
+- L1 line memory byte-write behavior.
+- L1 tag/valid write and address-selective invalidate behavior.
+- L2 dual-port line memory writes and byte enables.
+- L1 load and store helper byte placement.
+- L1 replacement choices for empty, partially valid, and LRU-selected sets.
+- L2 replacement same-index dual-port write selection.
+- A controller data-side line-fill subflow with four native memory read beats.
+
 ## Scoreboard Regression
 
 `make scoreboard` builds and runs `tb/cache_scoreboard_tb.sv` across multiple configurations.
@@ -19,8 +33,10 @@ The scoreboard keeps an independent byte-addressed reference memory initialized 
 - Instruction fetch reads.
 - Byte, word, and unaligned multi-beat write-through behavior.
 - Repeated hit reads after writes.
+- L1 replacement eviction using three lines that alias to one L1 set.
 - Simultaneous instruction and data requests.
 - Native memory request wait states.
+- Fixed and variable native memory response latency.
 - Native memory line-fill burst metadata.
 - Native memory write-through burst metadata.
 - Runtime global and address-selective line maintenance handshakes.
@@ -31,7 +47,7 @@ The scoreboard keeps an independent byte-addressed reference memory initialized 
 - Reset during an active transaction and repeated reset recovery.
 - The documented unsupported I/D coherency contract: data-side writes do not update an already-filled instruction L1 line until maintenance invalidates the line.
 
-`make verify` runs `make check`, `make scoreboard`, and `make parameter-compile`.
+`make verify` runs `make check`, `make scoreboard`, `make block-tests`, and `make parameter-compile`.
 
 Current scoreboard configurations:
 
@@ -43,6 +59,8 @@ Current scoreboard configurations:
 - `L1_SET_COUNT=32`, `L2_SET_COUNT=128`
 - split L1 set counts with `L1_DATA_SET_COUNT=32`, `L1_INSTR_SET_COUNT=64`, `L2_SET_COUNT=128`
 - ready-stalled native memory
+- fixed extra response latency
+- variable response latency
 - `DATA_WIDTH=128`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `DATA_WIDTH=32`
 - `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
@@ -75,10 +93,9 @@ The scoreboard is expected to pass as part of `make verify`.
 
 Known areas not yet covered:
 
-- Broader native memory response-latency patterns.
 - Memory-adaptor burst coalescing tests for bus-specific read and write burst encoding.
 - Combined non-default parameter sweeps outside the current scoreboard matrix.
-- Broader L1/L2 set-count sweeps beyond the current directed non-default case.
+- Broader L1/L2 replacement and set-count sweeps beyond the current directed cases.
 - Protocol assertions.
 
 ## Parameter Verification Direction

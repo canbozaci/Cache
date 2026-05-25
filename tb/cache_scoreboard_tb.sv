@@ -10,14 +10,17 @@ module cache_scoreboard_tb #(
     parameter L1_INSTR_SET_COUNT = L1_SET_COUNT,
     parameter L2_SET_COUNT = 256,
     parameter RAM_ADDR_WIDTH = 17,
-    parameter REF_BYTES = 4096,
-    parameter MEM_READY_STALLS = 0
+    parameter REF_BYTES = 16384,
+    parameter MEM_READY_STALLS = 0,
+    parameter MEM_RSP_EXTRA_LATENCY = 0,
+    parameter MEM_RSP_VARIABLE_LATENCY = 0
 ) ();
     localparam REF_WORDS = REF_BYTES / 4;
     localparam MEM_ADDR_LSB = (MEM_DATA_WIDTH == 64) ? 3 : 2;
     localparam LINE_MEM_BEAT_COUNT = LINE_WIDTH / MEM_DATA_WIDTH;
     localparam LINE_BYTE_COUNT = LINE_WIDTH / 8;
     localparam [ADDR_WIDTH-1:0] NEXT_LINE_ADDR = LINE_BYTE_COUNT;
+    localparam [ADDR_WIDTH-1:0] L1_ALIAS_STRIDE = L1_DATA_SET_COUNT * LINE_BYTE_COUNT;
     localparam [7:0] LINE_MEM_BEAT_COUNT_8 =
         (LINE_MEM_BEAT_COUNT == 1)  ? 8'd1  :
         (LINE_MEM_BEAT_COUNT == 2)  ? 8'd2  :
@@ -40,6 +43,9 @@ module cache_scoreboard_tb #(
     reg maint_addr_valid;
     reg [ADDR_WIDTH-1:0] maint_addr;
     reg [1:0] mem_ready_counter;
+    reg mem_rsp_pending;
+    integer mem_rsp_countdown;
+    integer mem_rsp_latency_value;
 
     reg instr_req_valid;
     reg data_req_read;
@@ -153,10 +159,27 @@ module cache_scoreboard_tb #(
         end else begin
             mem_ready_counter <= mem_ready_counter + 2'd1;
             if (mem_rsp_ready) begin
-                mem_rsp_valid <= mem_req_valid && mem_req_ready && !mem_req_write;
+                mem_rsp_valid <= 1'b0;
+            end
+            if (mem_rsp_pending) begin
+                if (mem_rsp_countdown == 0) begin
+                    mem_rsp_valid <= 1'b1;
+                    if (mem_rsp_ready) begin
+                        mem_rsp_pending <= 1'b0;
+                    end
+                end else begin
+                    mem_rsp_countdown <= mem_rsp_countdown - 1;
+                end
             end
             if (mem_req_valid && mem_req_ready && !mem_req_write) begin
                 mem_read_handshake_count <= mem_read_handshake_count + 1;
+                mem_rsp_pending <= 1'b1;
+                if (MEM_RSP_VARIABLE_LATENCY != 0) begin
+                    mem_rsp_latency_value = mem_read_handshake_count % 4;
+                end else begin
+                    mem_rsp_latency_value = MEM_RSP_EXTRA_LATENCY;
+                end
+                mem_rsp_countdown <= mem_rsp_latency_value;
             end
         end
     end
@@ -245,6 +268,7 @@ module cache_scoreboard_tb #(
 
         expect_data_read(19'h00004, "repeat hit after writes");
         expect_data_read(19'h00004, "second repeat hit after writes");
+        check_l1_replacement_eviction_contract();
         expect_data_and_instr_read(19'h00020, 19'h00030, "simultaneous data and instruction reads");
 
         if (error_count == 0) begin
@@ -268,6 +292,9 @@ module cache_scoreboard_tb #(
         maint_addr = {ADDR_WIDTH{1'b0}};
         mem_ready_counter = 2'b0;
         mem_rsp_valid = 1'b0;
+        mem_rsp_pending = 1'b0;
+        mem_rsp_countdown = 0;
+        mem_rsp_latency_value = 0;
         mem_read_handshake_count = 0;
         instr_req_valid = 1'b0;
         data_req_read = 1'b0;
@@ -280,6 +307,39 @@ module cache_scoreboard_tb #(
         expected_write_burst_len = 8'd1;
         expected_write_beat_index = 8'd0;
         write_burst_check_active = 1'b0;
+    end
+    endtask
+
+    task check_l1_replacement_eviction_contract;
+        reg [ADDR_WIDTH-1:0] alias_addr_0;
+        reg [ADDR_WIDTH-1:0] alias_addr_1;
+        reg [ADDR_WIDTH-1:0] alias_addr_2;
+        integer reads_before;
+        integer reads_after;
+    begin
+        alias_addr_0 = 19'h00100;
+        alias_addr_1 = alias_addr_0 + L1_ALIAS_STRIDE;
+        alias_addr_2 = alias_addr_1 + L1_ALIAS_STRIDE;
+
+        expect_data_read(alias_addr_0, "l1 replacement fill way 0");
+        expect_data_read(alias_addr_1, "l1 replacement fill way 1");
+
+        reads_before = mem_read_handshake_count;
+        expect_data_read(alias_addr_0, "l1 replacement update lru hit");
+        reads_after = mem_read_handshake_count;
+        if (reads_after != reads_before) begin
+            $display("REPLACEMENT MISMATCH: expected alias 0 to hit before eviction");
+            error_count = error_count + 1;
+        end
+
+        expect_data_read(alias_addr_2, "l1 replacement force eviction");
+        reads_before = mem_read_handshake_count;
+        expect_data_read(alias_addr_1, "l1 replacement evicted line refills");
+        reads_after = mem_read_handshake_count;
+        if (reads_after == reads_before) begin
+            $display("REPLACEMENT MISMATCH: expected alias 1 to miss after LRU eviction");
+            error_count = error_count + 1;
+        end
     end
     endtask
 

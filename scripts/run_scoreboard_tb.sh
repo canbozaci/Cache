@@ -28,6 +28,8 @@ run_case "dw128_line256" \
   -P cache_scoreboard_tb.LINE_WIDTH=256
 run_case "addr20" -P cache_scoreboard_tb.ADDR_WIDTH=20
 run_case "ready_stalls" -P cache_scoreboard_tb.MEM_READY_STALLS=1
+run_case "rsp_latency_2" -P cache_scoreboard_tb.MEM_RSP_EXTRA_LATENCY=2
+run_case "rsp_variable_latency" -P cache_scoreboard_tb.MEM_RSP_VARIABLE_LATENCY=1
 run_case "addr20_dw32" \
   -P cache_scoreboard_tb.ADDR_WIDTH=20 \
   -P cache_scoreboard_tb.DATA_WIDTH=32
