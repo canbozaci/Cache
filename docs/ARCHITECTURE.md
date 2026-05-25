@@ -58,7 +58,9 @@ The maintenance channel is:
 - `maint_done`
 - `maint_error`
 
-The cache has a single-entry maintenance queue. A maintenance request can be accepted while cache traffic is active when `maint_ready` is high. If accepted during active traffic, the operation is held until current cache traffic drains, then `maint_done` or `maint_error` pulses. `busy` remains high while a maintenance operation is queued. Global invalidate clears cache valid state. Global flush is a no-op because the cache is write-through. Address-selective line invalidate clears matching tag/valid entries for `maint_addr` in L1 data, L1 instruction, and L2. Address-selective line flush is also a write-through no-op. Global and line requests must not be asserted together; line requests require `maint_addr_valid`.
+The cache has a fixed single-entry maintenance queue. This depth is intentional and is not parameterized. A maintenance request can be accepted while cache traffic is active when `maint_ready` is high. If accepted during active traffic, the operation is held until current cache traffic drains, then `maint_done` or `maint_error` pulses. `busy` remains high while a maintenance operation is queued. External logic must pace back-to-back maintenance requests with `maint_ready`, `maint_done`, and `maint_error`.
+
+Global invalidate clears cache valid state. Global flush is a no-op because the cache is write-through. Address-selective line invalidate clears matching tag/valid entries for `maint_addr` in L1 data, L1 instruction, and L2. Address-selective line flush is also a write-through no-op. Global and line requests must not be asserted together; line requests require `maint_addr_valid`.
 
 The native cache memory interface is beat-based with burst metadata:
 

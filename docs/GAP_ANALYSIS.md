@@ -24,7 +24,7 @@
 - The scoreboard now covers one-beat, two-beat, and unaligned three-beat write-through cases across the current width matrix.
 - The scoreboard includes a ready-stall memory run.
 - Runtime global flush is defined as a write-through no-op, and runtime global invalidate clears the cache arrays while idle.
-- Maintenance requests use a single-entry queue and may be accepted while cache traffic is active.
+- Maintenance requests use an intentional fixed single-entry queue and may be accepted while cache traffic is active.
 - Address-selective line flush/invalidate is implemented; line flush is a write-through no-op, and line invalidate clears matching tag/valid entries in L1 data, L1 instruction, and L2.
 
 ## Remaining Design Gaps
@@ -35,7 +35,7 @@
 - CDC is intentionally outside the generic cache; asynchronous clock crossing must be implemented in a memory adaptor.
 - Bus-specific burst semantics are not implemented in the cache; adaptors must translate generic burst metadata into the target bus protocol.
 - Instruction and data L1 caches are not coherent with each other after data-side writes.
-- Maintenance queue depth is one; back-to-back software maintenance streams require external request pacing.
+- Maintenance queue depth is intentionally fixed at one; back-to-back software maintenance streams require external request pacing.
 - ASIC SRAM macro replacement wrappers and read/write behavior assumptions are not defined.
 
 ## Remaining Verification Gaps
