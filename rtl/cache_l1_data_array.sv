@@ -2,7 +2,7 @@
 // Words: 64
 // Word size: 128
 
-module L1_data_dat#(
+module cache_l1_data_array#(
   parameter DATA_WIDTH = 128,// data size 128 bit = LINE SIZE
   parameter ADDR_WIDTH = 6,  // idx size (6 bits), log2(64) = 6 (64 = block no)
   parameter BYTE_COUNT = DATA_WIDTH / 8,
@@ -20,7 +20,7 @@ module L1_data_dat#(
   integer byte_index;
   // Port-1 Operation Read First
   always @ (posedge clk) begin : MEM_WRITE
-    if (we) begin // write enable 
+    if (we) begin // write enable
       for (byte_index = 0; byte_index < BYTE_COUNT; byte_index = byte_index + 1) begin
         if (byte_enable[byte_index]) begin
           mem[addr][byte_index*8 +: 8] <= write_data[byte_index*8 +: 8];
@@ -31,4 +31,4 @@ module L1_data_dat#(
   end
 
   endmodule
-  
+

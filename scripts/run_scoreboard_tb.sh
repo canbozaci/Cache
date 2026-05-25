@@ -16,6 +16,9 @@ run_case "default"
 run_case "dw32" -P cache_scoreboard_tb.DATA_WIDTH=32
 run_case "mem64" -P cache_scoreboard_tb.MEM_DATA_WIDTH=64
 run_case "line256" -P cache_scoreboard_tb.LINE_WIDTH=256
+run_case "set_counts" \
+  -P cache_scoreboard_tb.L1_SET_COUNT=32 \
+  -P cache_scoreboard_tb.L2_SET_COUNT=128
 run_case "dw128_line256" \
   -P cache_scoreboard_tb.DATA_WIDTH=128 \
   -P cache_scoreboard_tb.LINE_WIDTH=256

@@ -34,6 +34,7 @@ Current scoreboard configurations:
 - `DATA_WIDTH=32`
 - `MEM_DATA_WIDTH=64`
 - `LINE_WIDTH=256`
+- `L1_SET_COUNT=32`, `L2_SET_COUNT=128`
 - ready-stalled native memory
 - `DATA_WIDTH=128`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `DATA_WIDTH=32`
@@ -50,6 +51,7 @@ Current scoreboard configurations:
 - `DATA_WIDTH=32`
 - `MEM_DATA_WIDTH=64`
 - `LINE_WIDTH=256`
+- `L1_SET_COUNT=32`, `L2_SET_COUNT=128`
 - `DATA_WIDTH=128`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `DATA_WIDTH=32`
 - `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
@@ -69,6 +71,7 @@ Known areas not yet covered:
 - Broader native memory response-latency patterns.
 - Memory-adaptor burst coalescing tests for bus-specific read and write burst encoding.
 - Combined non-default parameter sweeps outside the current scoreboard matrix.
+- Broader L1/L2 set-count sweeps beyond the current directed non-default case.
 - Protocol assertions.
 
 ## Parameter Verification Direction

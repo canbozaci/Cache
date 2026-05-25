@@ -3,6 +3,8 @@
 module cache_tb();
     localparam ADDR_WIDTH = 19;
     localparam DATA_WIDTH = 64;
+    localparam L1_SET_COUNT = 64;
+    localparam L2_SET_COUNT = 256;
     localparam RAM_ADDR_WIDTH = 17;
 
     reg clk;
@@ -52,7 +54,10 @@ module cache_tb();
         .read_data(mem_rsp_rdata)
     );
 
-    cache dut (
+    cache #(
+        .L1_SET_COUNT(L1_SET_COUNT),
+        .L2_SET_COUNT(L2_SET_COUNT)
+    ) dut (
         .clk(clk),
         .rst(rst),
         .instr_req_valid(instr_req_valid),

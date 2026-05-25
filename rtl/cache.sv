@@ -5,8 +5,8 @@ module cache #(
     parameter DATA_WIDTH = 64,
     parameter MEM_DATA_WIDTH = 32,
     parameter LINE_WIDTH = 128,
-    parameter L1_INDEX_WIDTH = 6,
-    parameter L2_INDEX_WIDTH = 8,
+    parameter L1_SET_COUNT = 64,
+    parameter L2_SET_COUNT = 256,
     parameter MEMORY_BASE_ADDR = 32'h2000_0000
 ) (
     input clk,
@@ -60,6 +60,8 @@ module cache #(
     localparam BYTE_OFFSET_WIDTH = 2;
     localparam LINE_WORD_OFFSET_WIDTH = $clog2(LINE_BYTE_COUNT / 4);
     localparam LINE_OFFSET_WIDTH = $clog2(LINE_BYTE_COUNT);
+    localparam L1_INDEX_WIDTH = $clog2(L1_SET_COUNT);
+    localparam L2_INDEX_WIDTH = $clog2(L2_SET_COUNT);
     localparam L1_TAG_WIDTH = ADDR_WIDTH - L1_INDEX_WIDTH - LINE_WORD_OFFSET_WIDTH - BYTE_OFFSET_WIDTH;
     localparam L2_ADDR_WIDTH = ADDR_WIDTH - LINE_OFFSET_WIDTH;
     localparam L2_TAG_WIDTH = L2_ADDR_WIDTH - L2_INDEX_WIDTH;
@@ -205,14 +207,15 @@ module cache #(
         end
     end
 
-    Cache_MEM_L1_data #(
-        .block_size(LINE_WIDTH),
-        .tag_size(L1_TAG_WIDTH),
-        .idx_size(L1_INDEX_WIDTH),
-        .word_size(LINE_WORD_OFFSET_WIDTH),
-        .offset_size(BYTE_OFFSET_WIDTH),
-        .data_width(DATA_WIDTH),
-        .line_byte_count(LINE_BYTE_COUNT)
+    cache_l1_data #(
+        .LINE_WIDTH(LINE_WIDTH),
+        .TAG_WIDTH(L1_TAG_WIDTH),
+        .INDEX_WIDTH(L1_INDEX_WIDTH),
+        .SET_COUNT(L1_SET_COUNT),
+        .WORD_OFFSET_WIDTH(LINE_WORD_OFFSET_WIDTH),
+        .BYTE_OFFSET_WIDTH(BYTE_OFFSET_WIDTH),
+        .DATA_WIDTH(DATA_WIDTH),
+        .LINE_BYTE_COUNT(LINE_BYTE_COUNT)
     ) cache_l1_data_inst (
         .clk(clk),
         .rst(cache_array_rst),
@@ -229,12 +232,12 @@ module cache #(
         .hit(l1_data_hit)
     );
 
-    cache_l1_read_cache #(
-        .BLOCK_WIDTH(LINE_WIDTH),
+    cache_l1_instr #(
+        .LINE_WIDTH(LINE_WIDTH),
         .DATA_WIDTH(32),
         .TAG_WIDTH(L1_TAG_WIDTH),
         .INDEX_WIDTH(L1_INDEX_WIDTH),
-        .LINE_COUNT(1 << L1_INDEX_WIDTH),
+        .SET_COUNT(L1_SET_COUNT),
         .WORD_OFFSET_WIDTH(LINE_WORD_OFFSET_WIDTH),
         .BYTE_OFFSET_WIDTH(BYTE_OFFSET_WIDTH)
     ) cache_l1_instr_inst (
@@ -250,12 +253,12 @@ module cache #(
 
     assign l1_miss_next = 1'b0;
 
-    Cache_MEM_L2 #(
-        .block_size(LINE_WIDTH),
-        .tag_size(L2_TAG_WIDTH),
-        .idx_size(L2_INDEX_WIDTH),
-        .block_no(1 << L2_INDEX_WIDTH),
-        .line_byte_count(LINE_BYTE_COUNT)
+    cache_l2 #(
+        .LINE_WIDTH(LINE_WIDTH),
+        .TAG_WIDTH(L2_TAG_WIDTH),
+        .INDEX_WIDTH(L2_INDEX_WIDTH),
+        .SET_COUNT(L2_SET_COUNT),
+        .LINE_BYTE_COUNT(LINE_BYTE_COUNT)
     ) cache_l2_inst (
         .clk(clk),
         .rst(cache_array_rst),
@@ -277,7 +280,7 @@ module cache #(
         .hit_p2(l2_p2_hit)
     );
 
-    Cache_controller #(
+    cache_controller #(
         .ADDR_WIDTH(ADDR_WIDTH),
         .DATA_WIDTH(DATA_WIDTH),
         .MEM_DATA_WIDTH(MEM_DATA_WIDTH),
@@ -293,7 +296,7 @@ module cache #(
         .rst(rst),
         .ram_req_ready(mem_req_ready),
         .ram_rsp_valid(mem_rsp_valid_q),
-        .L2_data_block_p1(l2_read_block_p1),
+        .l2_data_block_p1(l2_read_block_p1),
         .L1_data_addr(data_req_addr),
         .L1_instr_addr(instr_req_addr),
         .L2_p1_hit(l2_p1_hit),

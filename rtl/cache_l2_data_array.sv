@@ -1,11 +1,11 @@
 // Synthesizable dual-port cache data array model with byte enables.
-module L2_dat#(
+module cache_l2_data_array#(
    parameter   NUM_COL             =   16,// no byte enables
    parameter   COL_WIDTH           =   8, // 1 byte = 8 bits
    parameter   ADDR_WIDTH          =   8, // idx size = 8, log2(256) = 8 (256 = block no)
    // Addr  Width in bits : 2 *ADDR_WIDTH = RAM Depth
    parameter   DATA_WIDTH      =  NUM_COL*COL_WIDTH  // Data  Width in bits = 1 byte * 16 = 16 byte = 128 bits ==> LINE SIZE
-   ) 
+   )
    (
    input clk,// clock input
    input we_p1,// port 1 write enable signal (data cache)
@@ -19,7 +19,7 @@ module L2_dat#(
    output reg [DATA_WIDTH-1:0] read_data_p1, // data out port 1
    output reg [DATA_WIDTH-1:0] read_data_p2 // data out port 2
    );
-   
+
    reg [DATA_WIDTH-1:0] ram_block [(2**ADDR_WIDTH)-1:0];
   integer                i;
   // Port-1 Operation - Read First
@@ -31,7 +31,7 @@ module L2_dat#(
            end
         end
      end
-    read_data_p1 <= ram_block[addr_p1];  
+    read_data_p1 <= ram_block[addr_p1];
   end
   // Port-2 Operation - Read First
   always @ (posedge clk) begin
@@ -40,9 +40,9 @@ module L2_dat#(
            if(byte_enable_p2[i]) begin // byte write
               ram_block[addr_p2][i*COL_WIDTH +: COL_WIDTH] <= write_data_p2[i*COL_WIDTH +: COL_WIDTH];
            end
-        end     
+        end
      end
-    read_data_p2 <= ram_block[addr_p2];  
+    read_data_p2 <= ram_block[addr_p2];
   end
 
 endmodule

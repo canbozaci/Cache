@@ -1,14 +1,14 @@
 `timescale 1ns / 1ps
-module Cache_replacement_data#(
-      parameter idx_size = 6,
-      parameter block_no = 64
+module cache_l1_replacement#(
+      parameter INDEX_WIDTH = 6,
+      parameter SET_COUNT = 64
       )
       (
       input clk,
       input rst,
       input read,
       input write,
-      input [idx_size -1 :0] idx,
+      input [INDEX_WIDTH -1 :0] idx,
       input hit_s1, // set 1 hit input
       input hit_s2, // set 2 hit input
       input write_L2, // L2 write signal
@@ -19,11 +19,11 @@ module Cache_replacement_data#(
       output reg we_s2  // set2 write signal
       );
 
-      reg [block_no-1:0] lru_holder_s2; // holding the LRU (either LRU or not) for each block on set2
+      reg [SET_COUNT-1:0] lru_holder_s2; // holding the LRU (either LRU or not) for each block on set2
   // if lru_holder_s2 is 0 means set 1 was last read, if it is 1 means set 2 was last read
       always @(posedge clk) begin
         if(rst) begin
-          lru_holder_s2 <= {block_no{1'b0}};
+          lru_holder_s2 <= {SET_COUNT{1'b0}};
         end
         else if (hit_s1 & (read | write)) begin // If set 1 has hits and can be read or written then lru_holder_s2 should be 0
             lru_holder_s2[idx] <= 1'b0;
@@ -32,7 +32,7 @@ module Cache_replacement_data#(
             lru_holder_s2[idx] <= 1'b1;
         end
         end
-      
+
       always@ (*) begin
         we_s2 = 1'b0;
         we_s1 = 1'b0;
@@ -40,16 +40,16 @@ module Cache_replacement_data#(
           we_s2 = 1'b0;
           we_s1 = 1'b0;
         end
-        else if (write) begin 
+        else if (write) begin
           if(hit_s1 & (~write_L2 | write_through)) begin  // if there is write_through look for hit  if there is a hit in set 1 then write into set1
-            we_s1 = 1'b1; 
-            we_s2 = 1'b0; 
+            we_s1 = 1'b1;
+            we_s2 = 1'b0;
           end
           else if(hit_s2 & (~write_L2 | write_through)) begin // if there is write_through look for hit if there is a hit in set 2 then write into set2
             we_s2 = 1'b1;
             we_s1 = 1'b0;
           end
-          else if(valid_out_s1 & valid_out_s2) begin // if both sets are written (valid bits indicate that) 
+          else if(valid_out_s1 & valid_out_s2) begin // if both sets are written (valid bits indicate that)
             we_s2 = ~lru_holder_s2[idx];  // logical not value of lru holder decide we signal (because it holds lastly used)
             we_s1 = lru_holder_s2[idx];// value of lru holder decide we signal (because it holds lastly used)
           end

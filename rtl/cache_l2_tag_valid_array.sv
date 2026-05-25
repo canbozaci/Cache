@@ -1,11 +1,11 @@
 // Synthesizable dual-port tag/valid array model.
-module L2_tgv#(
+module cache_l2_tag_valid_array#(
   parameter   NUM_COL             =   1, // no byte enables
   parameter   COL_WIDTH           =   8, // tag size (7 bits) + valid bit (1 bit)
   parameter   ADDR_WIDTH          =   8, // idx size = 8, log2(256) = 8 (256 = block no)
   // Addr  Width in bits : 2 *ADDR_WIDTH = RAM Depth
   parameter   DATA_WIDTH      =  NUM_COL*COL_WIDTH  // Data  Width in bits
-  ) 
+  )
   (
   input clk,   // clock input
   input rst,
@@ -18,8 +18,8 @@ module L2_tgv#(
   output reg [DATA_WIDTH-1:0] read_data_p1, // data out port 1
   output reg [DATA_WIDTH-1:0] read_data_p2  // data out port 2
   );
-  
-  // Core Memory  
+
+  // Core Memory
   reg [DATA_WIDTH-1:0] ram_block [(2**ADDR_WIDTH)-1:0];
   integer mem_index;
   always @ (posedge clk) begin
@@ -38,8 +38,8 @@ module L2_tgv#(
       if(we_p2) begin
         ram_block[addr_p2][DATA_WIDTH-1:0] <= write_data_p2[DATA_WIDTH-1:0];
       end
-      read_data_p1 <= ram_block[addr_p1];  
-      read_data_p2 <= ram_block[addr_p2];  
+      read_data_p1 <= ram_block[addr_p1];
+      read_data_p2 <= ram_block[addr_p2];
     end
   end
 

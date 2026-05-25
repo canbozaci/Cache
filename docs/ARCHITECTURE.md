@@ -72,12 +72,16 @@ make compile-cache
 
 ## Parameter Contract
 
-The public top exposes `ADDR_WIDTH`, `DATA_WIDTH`, `MEM_DATA_WIDTH`, and `LINE_WIDTH`. The current verified matrix is documented in `docs/PARAMETERS.md`; it includes the default configuration plus selected single-parameter and combined non-default configurations:
+The public top exposes `ADDR_WIDTH`, `DATA_WIDTH`, `MEM_DATA_WIDTH`, `LINE_WIDTH`, `L1_SET_COUNT`, and `L2_SET_COUNT`. L1 and L2 index widths are derived from the set counts. The current verified matrix is documented in `docs/PARAMETERS.md`; it includes the default configuration plus selected single-parameter and combined non-default configurations:
 
 - `ADDR_WIDTH = 19`
 - `DATA_WIDTH = 64`
 - `MEM_DATA_WIDTH = 32`
 - `LINE_WIDTH = 128`
+- `L1_SET_COUNT = 64`
+- `L2_SET_COUNT = 256`
+
+The current L1 and L2 way count is fixed at 2.
 
 See `docs/PARAMETERS.md` for legal values, derived widths, unsupported combinations, and the bus-width genericity roadmap.
 
