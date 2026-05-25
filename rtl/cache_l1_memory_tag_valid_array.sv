@@ -5,7 +5,10 @@
 module cache_l1_memory_tag_valid_array#(
   parameter DATA_WIDTH = 10, // tag size (9 bits) + valid bit (1 bit)
   parameter ADDR_WIDTH = 6, // idx size (6 bits), log2(64) = 6 (64 = block no)
-  parameter RAM_DEPTH = 1 << ADDR_WIDTH // 2^6 = 64 (depth)
+  parameter RAM_DEPTH = 1 << ADDR_WIDTH, // 2^6 = 64 (depth)
+  /* verilator lint_off UNUSEDPARAM */
+  parameter INSTR_MEMORY = 0
+  /* verilator lint_on UNUSEDPARAM */
   )
   (
   input  clk, // clock input
@@ -20,25 +23,47 @@ module cache_l1_memory_tag_valid_array#(
   );
 
 `ifdef SRAM_MACRO_ENABLE
-`ifndef CACHE_L1_TAG_VALID_ARRAY_MACRO
-  `error "SRAM_MACRO_ENABLE requires CACHE_L1_TAG_VALID_ARRAY_MACRO"
+  generate
+    if (INSTR_MEMORY == 0) begin : gen_data_tag_valid_macro
+`ifndef CACHE_L1_DATA_TAG_VALID_ARRAY_MACRO
+      `error "SRAM_MACRO_ENABLE requires CACHE_L1_DATA_TAG_VALID_ARRAY_MACRO"
 `endif
-
-  `CACHE_L1_TAG_VALID_ARRAY_MACRO #(
-    .DATA_WIDTH(DATA_WIDTH),
-    .ADDR_WIDTH(ADDR_WIDTH),
-    .RAM_DEPTH(RAM_DEPTH)
-  ) cache_l1_tag_valid_array_macro_inst (
-    .clk(clk),
-    .rst(rst),
-    .we(we),
-    .invalidate(invalidate),
-    .addr(addr),
-    .invalidate_addr(invalidate_addr),
-    .invalidate_tag(invalidate_tag),
-    .write_data(write_data),
-    .read_data(read_data)
-  );
+      `CACHE_L1_DATA_TAG_VALID_ARRAY_MACRO #(
+        .DATA_WIDTH(DATA_WIDTH),
+        .ADDR_WIDTH(ADDR_WIDTH),
+        .RAM_DEPTH(RAM_DEPTH)
+      ) cache_l1_data_tag_valid_array_macro_inst (
+        .clk(clk),
+        .rst(rst),
+        .we(we),
+        .invalidate(invalidate),
+        .addr(addr),
+        .invalidate_addr(invalidate_addr),
+        .invalidate_tag(invalidate_tag),
+        .write_data(write_data),
+        .read_data(read_data)
+      );
+    end else begin : gen_instr_tag_valid_macro
+`ifndef CACHE_L1_INSTR_TAG_VALID_ARRAY_MACRO
+      `error "SRAM_MACRO_ENABLE requires CACHE_L1_INSTR_TAG_VALID_ARRAY_MACRO"
+`endif
+      `CACHE_L1_INSTR_TAG_VALID_ARRAY_MACRO #(
+        .DATA_WIDTH(DATA_WIDTH),
+        .ADDR_WIDTH(ADDR_WIDTH),
+        .RAM_DEPTH(RAM_DEPTH)
+      ) cache_l1_instr_tag_valid_array_macro_inst (
+        .clk(clk),
+        .rst(rst),
+        .we(we),
+        .invalidate(invalidate),
+        .addr(addr),
+        .invalidate_addr(invalidate_addr),
+        .invalidate_tag(invalidate_tag),
+        .write_data(write_data),
+        .read_data(read_data)
+      );
+    end
+  endgenerate
 `else
   // Core Memory
   reg [DATA_WIDTH-1:0] mem [0:RAM_DEPTH-1];

@@ -13,12 +13,12 @@
 - Multi-beat write-through traffic exposes the same generic burst metadata as line fills.
 - The generic cache still transfers one memory beat per handshake; bus-specific burst encoding and coalescing belong in a memory adaptor.
 - Internal RTL module and file names have been normalized to lowercase `cache_*` names; shared L1/L2 storage helpers use `cache_l*_memory_*` names to avoid implying data-cache-only ownership.
-- Public set geometry uses `L1_SET_COUNT` and `L2_SET_COUNT`; L1/L2 index widths are derived internally.
+- Public set geometry uses `L1_DATA_SET_COUNT`, `L1_INSTR_SET_COUNT`, and `L2_SET_COUNT`; L1/L2 index widths are derived internally, and `L1_SET_COUNT` remains as the backward-compatible default for both L1 sides.
 - L1 and L2 way count is fixed at 2.
 - Width plumbing derives byte-enable widths, data-side strobe width, memory-side strobe width, line byte count, L1 tag width, L2 tag width, and L2 address width from top-level parameters.
 - Line fill sequencing uses a derived `LINE_WIDTH / MEM_DATA_WIDTH` beat count instead of fixed four-beat controller states.
 - Write-through sequencing uses a derived write-beat index, memory-byte strobes generated per beat, `MEM_ADDR_STEP`, and line-offset based memory data selection.
-- Behavioral support is proven for the default configuration, single-parameter overrides, and the combined non-default scoreboard configurations documented in `docs/PARAMETERS.md`.
+- Behavioral support is proven for the default configuration, single-parameter overrides, split L1 set counts, and the combined non-default scoreboard configurations documented in `docs/PARAMETERS.md`.
 - `DATA_WIDTH=128` is proven for `LINE_WIDTH=256`, including the `MEM_DATA_WIDTH=64` combination.
 - The line-boundary contract is defined: one data request must not cross a cache-line boundary.
 - The scoreboard now covers one-beat, two-beat, and unaligned three-beat write-through cases across the current width matrix.
@@ -36,12 +36,12 @@
 - Bus-specific burst semantics are not implemented in the cache; adaptors must translate generic burst metadata into the target bus protocol.
 - Instruction and data L1 caches are not coherent with each other after data-side writes.
 - Maintenance queue depth is intentionally fixed at one; back-to-back software maintenance streams require external request pacing.
-- SRAM macro hooks are adapter-based and documented, but macro-backed configurations are not yet compiled in CI with project-specific adapters.
+- SRAM macro hooks are adapter-based, role-specific for L1 data/instruction memories, and documented, but macro-backed configurations are not yet compiled in CI with project-specific adapters.
 
 ## Remaining Verification Gaps
 
 - Combined parameter sweeps are present for the current width matrix, but are not exhaustive.
-- Broader L1/L2 set-count sweeps are missing beyond the current directed non-default case.
+- Broader L1/L2 set-count sweeps are missing beyond the current directed non-default and split-L1 cases.
 - Adaptors need negative contract tests to ensure transfers crossing a cache-line boundary are split before reaching the cache.
 - Replacement, eviction, same-index dual-port, and write-through corner cases need focused tests.
 - There are no block-level self-checking tests for arrays, replacement modules, load/store helpers, or controller subflows.

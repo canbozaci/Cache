@@ -12,7 +12,9 @@ The cache now has width-clean RTL elaboration and scoreboard coverage for select
 | `DATA_WIDTH` | 64 | Data-side raw request and response width. |
 | `MEM_DATA_WIDTH` | 32 | Native memory-side beat width. |
 | `LINE_WIDTH` | 128 | Cache line width. |
-| `L1_SET_COUNT` | 64 | Number of L1 sets. Must be a power of two. |
+| `L1_SET_COUNT` | 64 | Backward-compatible default number of L1 sets. Must be a power of two. |
+| `L1_DATA_SET_COUNT` | `L1_SET_COUNT` | Number of data-side L1 sets. Must be a power of two. |
+| `L1_INSTR_SET_COUNT` | `L1_SET_COUNT` | Number of instruction-side L1 sets. Must be a power of two. |
 | `L2_SET_COUNT` | 256 | Number of L2 sets. Must be a power of two. |
 | `MEMORY_BASE_ADDR` | `32'h2000_0000` | Native memory address base added to cache-local addresses. The default preserves the original low cache-local address bits. |
 
@@ -32,9 +34,11 @@ For the default configuration:
 | Native write burst length | Memory beats touched by data write strobes | 1 to 3 in current directed tests |
 | L1 word offset bits | `log2((LINE_WIDTH / 8) / 4)` | 2 |
 | Line byte offset bits | `log2(LINE_WIDTH / 8)` | 4 |
-| L1 index width | `log2(L1_SET_COUNT)` | 6 |
+| L1 data index width | `log2(L1_DATA_SET_COUNT)` | 6 |
+| L1 instruction index width | `log2(L1_INSTR_SET_COUNT)` | 6 |
 | L2 index width | `log2(L2_SET_COUNT)` | 8 |
-| L1 tag width | `ADDR_WIDTH - L1_INDEX_WIDTH - L1_WORD_OFFSET_WIDTH - 2` | 9 |
+| L1 data tag width | `ADDR_WIDTH - L1_DATA_INDEX_WIDTH - L1_WORD_OFFSET_WIDTH - 2` | 9 |
+| L1 instruction tag width | `ADDR_WIDTH - L1_INSTR_INDEX_WIDTH - L1_WORD_OFFSET_WIDTH - 2` | 9 |
 | L2 address width | `ADDR_WIDTH - LINE_OFFSET_WIDTH` | 15 |
 | L2 tag width | `L2_ADDR_WIDTH - L2_INDEX_WIDTH` | 7 |
 
@@ -48,6 +52,7 @@ Behaviorally verified by smoke and scoreboard:
 - `MEM_DATA_WIDTH=64`
 - `LINE_WIDTH=256`
 - `L1_SET_COUNT=32`, `L2_SET_COUNT=128`
+- `L1_DATA_SET_COUNT=32`, `L1_INSTR_SET_COUNT=64`, `L2_SET_COUNT=128`
 - ready-stalled native memory using the default widths
 - `DATA_WIDTH=128`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `DATA_WIDTH=32`
@@ -64,6 +69,7 @@ Compile/lint swept by `make parameter-compile`:
 - `MEM_DATA_WIDTH=64`
 - `LINE_WIDTH=256`
 - `L1_SET_COUNT=32`, `L2_SET_COUNT=128`
+- `L1_DATA_SET_COUNT=32`, `L1_INSTR_SET_COUNT=64`, `L2_SET_COUNT=128`
 - `DATA_WIDTH=128`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `DATA_WIDTH=32`
 - `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
@@ -83,7 +89,7 @@ The intended legal range is:
 - `LINE_WIDTH` must be an integer multiple of `MEM_DATA_WIDTH`.
 - `LINE_WIDTH` must be at least as wide as `DATA_WIDTH`.
 - A single data-side request must not cross a cache-line boundary. CPU adaptors must split any wider or unaligned transfer that would cross a line.
-- `L1_SET_COUNT` and `L2_SET_COUNT` must be powers of two.
+- `L1_SET_COUNT`, `L1_DATA_SET_COUNT`, `L1_INSTR_SET_COUNT`, and `L2_SET_COUNT` must be powers of two.
 - The derived L1 and L2 index widths must leave at least one tag bit.
 - `MEMORY_BASE_ADDR + cache-local address` must fit within the 32-bit native memory address output.
 
@@ -96,5 +102,5 @@ Specific remaining risks:
 - Fill sequencing now uses a derived memory-beat count and is tested for `MEM_DATA_WIDTH=64` and `LINE_WIDTH=256`.
 - Write-through sequencing now uses a derived memory-beat index and is tested for one-beat, two-beat, and three-beat directed writes in the current scoreboard matrix.
 - `DATA_WIDTH=128` is behaviorally supported only for the documented `LINE_WIDTH=256` configurations, and only when each request stays within one cache line.
-- L1 and L2 replacement behavior is only lightly swept across non-default set counts.
+- L1 and L2 replacement behavior is only lightly swept across non-default and split L1 set counts.
 - Combined non-default configurations outside the explicit scoreboard matrix above are not yet swept behaviorally.

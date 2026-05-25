@@ -5,7 +5,11 @@ module cache #(
     parameter DATA_WIDTH = 64,
     parameter MEM_DATA_WIDTH = 32,
     parameter LINE_WIDTH = 128,
+    /* verilator lint_off UNUSEDPARAM */
     parameter L1_SET_COUNT = 64,
+    /* verilator lint_on UNUSEDPARAM */
+    parameter L1_DATA_SET_COUNT = L1_SET_COUNT,
+    parameter L1_INSTR_SET_COUNT = L1_SET_COUNT,
     parameter L2_SET_COUNT = 256,
     parameter MEMORY_BASE_ADDR = 32'h2000_0000
 ) (
@@ -64,9 +68,11 @@ module cache #(
     localparam BYTE_OFFSET_WIDTH = 2;
     localparam LINE_WORD_OFFSET_WIDTH = $clog2(LINE_BYTE_COUNT / 4);
     localparam LINE_OFFSET_WIDTH = $clog2(LINE_BYTE_COUNT);
-    localparam L1_INDEX_WIDTH = $clog2(L1_SET_COUNT);
+    localparam L1_DATA_INDEX_WIDTH = $clog2(L1_DATA_SET_COUNT);
+    localparam L1_INSTR_INDEX_WIDTH = $clog2(L1_INSTR_SET_COUNT);
     localparam L2_INDEX_WIDTH = $clog2(L2_SET_COUNT);
-    localparam L1_TAG_WIDTH = ADDR_WIDTH - L1_INDEX_WIDTH - LINE_WORD_OFFSET_WIDTH - BYTE_OFFSET_WIDTH;
+    localparam L1_DATA_TAG_WIDTH = ADDR_WIDTH - L1_DATA_INDEX_WIDTH - LINE_WORD_OFFSET_WIDTH - BYTE_OFFSET_WIDTH;
+    localparam L1_INSTR_TAG_WIDTH = ADDR_WIDTH - L1_INSTR_INDEX_WIDTH - LINE_WORD_OFFSET_WIDTH - BYTE_OFFSET_WIDTH;
     localparam L2_ADDR_WIDTH = ADDR_WIDTH - LINE_OFFSET_WIDTH;
     localparam L2_TAG_WIDTH = L2_ADDR_WIDTH - L2_INDEX_WIDTH;
 
@@ -88,7 +94,8 @@ module cache #(
     wire [LINE_WIDTH-1:0] l2_read_block_p2;
     wire [L2_ADDR_WIDTH-1:0] l2_p2_addr;
     wire [L2_ADDR_WIDTH-1:0] l2_maint_addr;
-    wire [L1_TAG_WIDTH+L1_INDEX_WIDTH-1:0] l1_maint_tag_and_idx;
+    wire [L1_DATA_TAG_WIDTH+L1_DATA_INDEX_WIDTH-1:0] l1_data_maint_tag_and_idx;
+    wire [L1_INSTR_TAG_WIDTH+L1_INSTR_INDEX_WIDTH-1:0] l1_instr_maint_tag_and_idx;
     wire [LINE_BYTE_COUNT-1:0] l2_byte_enable_p1;
     wire [LINE_BYTE_COUNT-1:0] l2_byte_enable_p2;
     wire l2_read_p1;
@@ -176,7 +183,8 @@ module cache #(
     assign maint_error = maint_error_q;
     assign cache_array_rst = rst | maint_invalidate_pulse;
     assign l2_maint_addr = maint_addr_q[L2_ADDR_WIDTH-1:0];
-    assign l1_maint_tag_and_idx = maint_addr_q[ADDR_WIDTH-1:LINE_WORD_OFFSET_WIDTH+BYTE_OFFSET_WIDTH];
+    assign l1_data_maint_tag_and_idx = maint_addr_q[ADDR_WIDTH-1:LINE_WORD_OFFSET_WIDTH+BYTE_OFFSET_WIDTH];
+    assign l1_instr_maint_tag_and_idx = maint_addr_q[ADDR_WIDTH-1:LINE_WORD_OFFSET_WIDTH+BYTE_OFFSET_WIDTH];
 
     always @(*) begin
         mem_req_wdata_aligned = {MEM_DATA_WIDTH{1'b0}};
@@ -258,9 +266,9 @@ module cache #(
 
     cache_l1_data #(
         .LINE_WIDTH(LINE_WIDTH),
-        .TAG_WIDTH(L1_TAG_WIDTH),
-        .INDEX_WIDTH(L1_INDEX_WIDTH),
-        .SET_COUNT(L1_SET_COUNT),
+        .TAG_WIDTH(L1_DATA_TAG_WIDTH),
+        .INDEX_WIDTH(L1_DATA_INDEX_WIDTH),
+        .SET_COUNT(L1_DATA_SET_COUNT),
         .WORD_OFFSET_WIDTH(LINE_WORD_OFFSET_WIDTH),
         .BYTE_OFFSET_WIDTH(BYTE_OFFSET_WIDTH),
         .DATA_WIDTH(DATA_WIDTH),
@@ -273,7 +281,7 @@ module cache #(
         .write_L2(write_l2),
         .write_through(write_through),
         .invalidate_line(maint_invalidate_line_pulse),
-        .invalidate_tag_and_idx(l1_maint_tag_and_idx),
+        .invalidate_tag_and_idx(l1_data_maint_tag_and_idx),
         .addr(data_req_addr),
         .write_data(data_req_wdata),
         .write_strobe(data_req_wstrb),
@@ -286,9 +294,9 @@ module cache #(
     cache_l1_instr #(
         .LINE_WIDTH(LINE_WIDTH),
         .DATA_WIDTH(32),
-        .TAG_WIDTH(L1_TAG_WIDTH),
-        .INDEX_WIDTH(L1_INDEX_WIDTH),
-        .SET_COUNT(L1_SET_COUNT),
+        .TAG_WIDTH(L1_INSTR_TAG_WIDTH),
+        .INDEX_WIDTH(L1_INSTR_INDEX_WIDTH),
+        .SET_COUNT(L1_INSTR_SET_COUNT),
         .WORD_OFFSET_WIDTH(LINE_WORD_OFFSET_WIDTH),
         .BYTE_OFFSET_WIDTH(BYTE_OFFSET_WIDTH)
     ) cache_l1_instr_inst (
@@ -297,7 +305,7 @@ module cache #(
         .read(instr_cache_read | instr_req_valid),
         .fill(l1_instr_write),
         .invalidate_line(maint_invalidate_line_pulse),
-        .invalidate_tag_and_idx(l1_maint_tag_and_idx),
+        .invalidate_tag_and_idx(l1_instr_maint_tag_and_idx),
         .addr(instr_req_addr),
         .fill_block(instr_memory_fill_active ? instr_memory_fill_block : l2_read_block_p2),
         .data(instr_resp_data),

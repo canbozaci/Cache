@@ -15,8 +15,10 @@ Enable macro-backed memories with:
 When `SRAM_MACRO_ENABLE` is set, all role-specific adapter defines must also be provided:
 
 ```text
-+define+CACHE_L1_MEMORY_ARRAY_MACRO=<external_l1_line_adapter_module>
-+define+CACHE_L1_TAG_VALID_ARRAY_MACRO=<external_l1_tag_valid_adapter_module>
++define+CACHE_L1_DATA_MEMORY_ARRAY_MACRO=<external_l1_data_line_adapter_module>
++define+CACHE_L1_DATA_TAG_VALID_ARRAY_MACRO=<external_l1_data_tag_valid_adapter_module>
++define+CACHE_L1_INSTR_MEMORY_ARRAY_MACRO=<external_l1_instr_line_adapter_module>
++define+CACHE_L1_INSTR_TAG_VALID_ARRAY_MACRO=<external_l1_instr_tag_valid_adapter_module>
 +define+CACHE_L2_MEMORY_ARRAY_MACRO=<external_l2_line_adapter_module>
 +define+CACHE_L2_TAG_VALID_ARRAY_MACRO=<external_l2_tag_valid_adapter_module>
 ```
@@ -29,8 +31,10 @@ The adapter module is responsible for instantiating the real SRAM macro cell or 
 
 | Cache wrapper | Default model | External adapter define | Expected storage role |
 | --- | --- | --- | --- |
-| `cache_l1_memory_array` | single-port inferred memory | `CACHE_L1_MEMORY_ARRAY_MACRO` | L1 cache line data storage |
-| `cache_l1_memory_tag_valid_array` | single-port inferred memory | `CACHE_L1_TAG_VALID_ARRAY_MACRO` | L1 tag and valid storage |
+| `cache_l1_memory_array` with `INSTR_MEMORY=0` | single-port inferred memory | `CACHE_L1_DATA_MEMORY_ARRAY_MACRO` | L1 data-cache line storage |
+| `cache_l1_memory_tag_valid_array` with `INSTR_MEMORY=0` | single-port inferred memory | `CACHE_L1_DATA_TAG_VALID_ARRAY_MACRO` | L1 data-cache tag and valid storage |
+| `cache_l1_memory_array` with `INSTR_MEMORY=1` | single-port inferred memory | `CACHE_L1_INSTR_MEMORY_ARRAY_MACRO` | L1 instruction-cache line storage |
+| `cache_l1_memory_tag_valid_array` with `INSTR_MEMORY=1` | single-port inferred memory | `CACHE_L1_INSTR_TAG_VALID_ARRAY_MACRO` | L1 instruction-cache tag and valid storage |
 | `cache_l2_memory_array` | dual-port inferred memory | `CACHE_L2_MEMORY_ARRAY_MACRO` | L2 cache line data storage |
 | `cache_l2_memory_tag_valid_array` | dual-port inferred memory | `CACHE_L2_TAG_VALID_ARRAY_MACRO` | L2 tag and valid storage |
 
@@ -38,7 +42,7 @@ The adapter module is responsible for instantiating the real SRAM macro cell or 
 
 External adapter modules must support the same parameters and ports as the cache wrapper role they replace. The parameters allow the generic cache to elaborate consistently, but the adapter may check that the selected cache configuration matches a fixed SRAM macro size.
 
-For example, an adapter for `CACHE_L1_MEMORY_ARRAY_MACRO` must provide:
+For example, an adapter for `CACHE_L1_DATA_MEMORY_ARRAY_MACRO` must provide:
 
 ```systemverilog
 module project_l1_memory_array_adapter #(
@@ -57,6 +61,8 @@ module project_l1_memory_array_adapter #(
 ```
 
 The adapter can instantiate a fixed macro such as a 64-deep by 128-bit SRAM internally, but that macro and any foundry collateral must live outside this repository.
+
+The instruction and data L1 memories can map to different fixed-depth cells. Use `L1_DATA_SET_COUNT` and `L1_INSTR_SET_COUNT` to describe different logical depths at the cache top. If those parameters remain unset, both inherit `L1_SET_COUNT` for backward-compatible default geometry.
 
 ## Required Behavior
 

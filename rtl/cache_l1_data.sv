@@ -61,7 +61,8 @@ module cache_l1_data#( // L1 data cache top module
         .LINE_WIDTH(LINE_WIDTH),
         .TAG_WIDTH(TAG_WIDTH),
         .INDEX_WIDTH(INDEX_WIDTH),
-        .LINE_BYTE_COUNT(LINE_BYTE_COUNT)
+        .LINE_BYTE_COUNT(LINE_BYTE_COUNT),
+        .INSTR_MEMORY(0)
         )
     cache_set_0(
         .clk(clk),
@@ -81,7 +82,8 @@ module cache_l1_data#( // L1 data cache top module
         .LINE_WIDTH(LINE_WIDTH),
         .TAG_WIDTH(TAG_WIDTH),
         .INDEX_WIDTH(INDEX_WIDTH),
-        .LINE_BYTE_COUNT(LINE_BYTE_COUNT)
+        .LINE_BYTE_COUNT(LINE_BYTE_COUNT),
+        .INSTR_MEMORY(0)
         )
     cache_set_1(
         .clk(clk),

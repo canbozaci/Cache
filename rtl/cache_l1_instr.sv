@@ -57,7 +57,8 @@ module cache_l1_instr #(
         .LINE_WIDTH(LINE_WIDTH),
         .TAG_WIDTH(TAG_WIDTH),
         .INDEX_WIDTH(INDEX_WIDTH),
-        .LINE_BYTE_COUNT(LINE_WIDTH/8)
+        .LINE_BYTE_COUNT(LINE_WIDTH/8),
+        .INSTR_MEMORY(1)
     ) cache_set_0 (
         .clk(clk),
         .rst(rst),
@@ -76,7 +77,8 @@ module cache_l1_instr #(
         .LINE_WIDTH(LINE_WIDTH),
         .TAG_WIDTH(TAG_WIDTH),
         .INDEX_WIDTH(INDEX_WIDTH),
-        .LINE_BYTE_COUNT(LINE_WIDTH/8)
+        .LINE_BYTE_COUNT(LINE_WIDTH/8),
+        .INSTR_MEMORY(1)
     ) cache_set_1 (
         .clk(clk),
         .rst(rst),

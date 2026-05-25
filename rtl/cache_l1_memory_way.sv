@@ -3,7 +3,8 @@ module cache_l1_memory_way#(
     parameter LINE_WIDTH = 128,
     parameter TAG_WIDTH = 9,
     parameter INDEX_WIDTH = 6,
-    parameter LINE_BYTE_COUNT = LINE_WIDTH / 8
+    parameter LINE_BYTE_COUNT = LINE_WIDTH / 8,
+    parameter INSTR_MEMORY = 0
     )
     (
     input clk,
@@ -22,7 +23,8 @@ module cache_l1_memory_way#(
     cache_l1_memory_array #(
         .DATA_WIDTH(LINE_WIDTH),
         .ADDR_WIDTH(INDEX_WIDTH),
-        .BYTE_COUNT(LINE_BYTE_COUNT)
+        .BYTE_COUNT(LINE_BYTE_COUNT),
+        .INSTR_MEMORY(INSTR_MEMORY)
     ) cache_l1_memory_array_inst(
         .clk(clk),
         .we(we),
@@ -35,7 +37,8 @@ module cache_l1_memory_way#(
     cache_l1_memory_tag_valid_array #(
         .DATA_WIDTH(TAG_WIDTH + 1),
         .ADDR_WIDTH(INDEX_WIDTH),
-        .RAM_DEPTH(1 << INDEX_WIDTH)
+        .RAM_DEPTH(1 << INDEX_WIDTH),
+        .INSTR_MEMORY(INSTR_MEMORY)
     ) cache_l1_memory_tag_valid_array_inst(
         .clk(clk),
         .rst(rst),

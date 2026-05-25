@@ -38,6 +38,7 @@ Current scoreboard configurations:
 - `MEM_DATA_WIDTH=64`
 - `LINE_WIDTH=256`
 - `L1_SET_COUNT=32`, `L2_SET_COUNT=128`
+- split L1 set counts with `L1_DATA_SET_COUNT=32`, `L1_INSTR_SET_COUNT=64`, `L2_SET_COUNT=128`
 - ready-stalled native memory
 - `DATA_WIDTH=128`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `DATA_WIDTH=32`
@@ -55,6 +56,7 @@ Current scoreboard configurations:
 - `MEM_DATA_WIDTH=64`
 - `LINE_WIDTH=256`
 - `L1_SET_COUNT=32`, `L2_SET_COUNT=128`
+- split L1 set counts with `L1_DATA_SET_COUNT=32`, `L1_INSTR_SET_COUNT=64`, `L2_SET_COUNT=128`
 - `DATA_WIDTH=128`, `LINE_WIDTH=256`
 - `ADDR_WIDTH=20`, `DATA_WIDTH=32`
 - `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`

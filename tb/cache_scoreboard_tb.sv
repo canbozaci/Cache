@@ -6,6 +6,8 @@ module cache_scoreboard_tb #(
     parameter MEM_DATA_WIDTH = 32,
     parameter LINE_WIDTH = 128,
     parameter L1_SET_COUNT = 64,
+    parameter L1_DATA_SET_COUNT = L1_SET_COUNT,
+    parameter L1_INSTR_SET_COUNT = L1_SET_COUNT,
     parameter L2_SET_COUNT = 256,
     parameter RAM_ADDR_WIDTH = 17,
     parameter REF_BYTES = 4096,
@@ -101,6 +103,8 @@ module cache_scoreboard_tb #(
         .MEM_DATA_WIDTH(MEM_DATA_WIDTH),
         .LINE_WIDTH(LINE_WIDTH),
         .L1_SET_COUNT(L1_SET_COUNT),
+        .L1_DATA_SET_COUNT(L1_DATA_SET_COUNT),
+        .L1_INSTR_SET_COUNT(L1_INSTR_SET_COUNT),
         .L2_SET_COUNT(L2_SET_COUNT)
     ) dut (
         .clk(clk),
