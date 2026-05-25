@@ -11,7 +11,7 @@
 - Native memory traffic uses a single-clock, beat-based request/response interface with request ready and response valid handshakes.
 - Native memory line-fill reads expose generic burst metadata: burst valid, total beat count, beat index, first beat, and last beat.
 - Multi-beat write-through traffic exposes the same generic burst metadata as line fills.
-- The generic cache still transfers one memory beat per handshake; bus-specific burst encoding and coalescing belong in a memory adaptor.
+- The generic cache still transfers one memory beat per handshake; bus-specific burst encoding and coalescing belong in a memory adaptor or higher-level SoC integration.
 - Internal RTL module and file names have been normalized to lowercase `cache_*` names; shared L1/L2 storage helpers use `cache_l*_memory_*` names to avoid implying data-cache-only ownership.
 - Public set geometry uses `L1_DATA_SET_COUNT`, `L1_INSTR_SET_COUNT`, and `L2_SET_COUNT`; L1/L2 index widths are derived internally, and `L1_SET_COUNT` remains as the backward-compatible default for both L1 sides.
 - L1 and L2 way count is fixed at 2.
@@ -46,7 +46,6 @@
 - Combined parameter sweeps are present for the current width matrix, but are not exhaustive.
 - Broader L1/L2 set-count sweeps are missing beyond the current directed non-default and split-L1 cases.
 - Adaptors need negative contract tests to ensure transfers crossing a cache-line boundary are split before reaching the cache.
-- Generic line-fill and write-through burst metadata are checked by the scoreboard, but bus-specific burst coalescing must be verified in memory-adaptor repositories.
 - Assertions and functional coverage are missing.
 
 ## Remaining Documentation Gaps
@@ -65,7 +64,6 @@ P0 before first real version:
 - Add adaptor-side checks/tests that split data requests crossing a cache-line boundary.
 - Extend combined parameter scoreboard runs beyond the current matrix.
 - Write the public cache request/response and native memory timing contract as a dedicated integration document.
-- Add memory-adaptor tests that map generic read and write burst metadata to real bus bursts.
 - Add focused replacement and eviction tests.
 - Define memory-adaptor CDC expectations for external memory clocks.
 
