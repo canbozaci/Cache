@@ -45,7 +45,7 @@ docs/       Integration and gap-analysis notes
 
 ## ASIC-Oriented Cleanup Notes
 
-The cache array models no longer contain FPGA `ram_style` attributes or OpenRAM/BRAM-specific markers in synthesizable RTL. The current array models are still generic inferred SystemVerilog memories; mapping to foundry SRAM macros remains an integration/signoff task.
+The cache array models no longer contain FPGA `ram_style` attributes or OpenRAM/BRAM-specific markers in synthesizable RTL. The default array models are generic inferred SystemVerilog memories. ASIC SRAM macro integration is handled through external adapter hooks documented in `docs/SRAM_INTEGRATION.md`; this repository does not include foundry SRAM cells.
 
 The top-level smoke test uses a small native 32-bit memory model instead of the historical demo memory, peripheral, and program image files.
 

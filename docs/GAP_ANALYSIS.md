@@ -36,7 +36,7 @@
 - Bus-specific burst semantics are not implemented in the cache; adaptors must translate generic burst metadata into the target bus protocol.
 - Instruction and data L1 caches are not coherent with each other after data-side writes.
 - Maintenance queue depth is intentionally fixed at one; back-to-back software maintenance streams require external request pacing.
-- ASIC SRAM macro replacement wrappers and read/write behavior assumptions are not defined.
+- SRAM macro hooks are adapter-based and documented, but macro-backed configurations are not yet compiled in CI with project-specific adapters.
 
 ## Remaining Verification Gaps
 
@@ -57,7 +57,7 @@
 - The IP contract needs a dedicated timing document for clocks, reset, requests, responses, memory transactions, and legal command combinations.
 - Timing diagrams are missing for read hit, read miss, instruction miss, data write hit, data write miss, and simultaneous instruction/data traffic.
 - `docs/PARAMETERS.md` documents the currently swept matrix, but a release-facing support matrix still needs more corner-case evidence.
-- Reset, maintenance, SRAM macro integration, and known limitations need release-facing integration notes.
+- Reset, maintenance, and known limitations need release-facing integration notes.
 - License and reuse terms still need to be checked before describing the IP as redistributable.
 
 ## Priority Plan
@@ -82,5 +82,5 @@ P1 for stronger bus-width genericity:
 P2 before release maturity:
 
 - Add protocol assertions and functional coverage.
-- Define ASIC SRAM macro wrappers and memory behavior assumptions.
+- Add CI or integration examples for external SRAM macro adapters without adding SRAM cells to this repository.
 - Clean remaining historical module names after verification protects the behavior.

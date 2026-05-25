@@ -20,6 +20,30 @@ module cache_l2_memory_array#(
    output reg [DATA_WIDTH-1:0] read_data_p2 // data out port 2
    );
 
+`ifdef SRAM_MACRO_ENABLE
+`ifndef CACHE_L2_MEMORY_ARRAY_MACRO
+  `error "SRAM_MACRO_ENABLE requires CACHE_L2_MEMORY_ARRAY_MACRO"
+`endif
+
+  `CACHE_L2_MEMORY_ARRAY_MACRO #(
+    .NUM_COL(NUM_COL),
+    .COL_WIDTH(COL_WIDTH),
+    .ADDR_WIDTH(ADDR_WIDTH),
+    .DATA_WIDTH(DATA_WIDTH)
+  ) cache_l2_memory_array_macro_inst (
+    .clk(clk),
+    .we_p1(we_p1),
+    .we_p2(we_p2),
+    .byte_enable_p1(byte_enable_p1),
+    .byte_enable_p2(byte_enable_p2),
+    .addr_p1(addr_p1),
+    .addr_p2(addr_p2),
+    .write_data_p1(write_data_p1),
+    .write_data_p2(write_data_p2),
+    .read_data_p1(read_data_p1),
+    .read_data_p2(read_data_p2)
+  );
+`else
    reg [DATA_WIDTH-1:0] ram_block [(2**ADDR_WIDTH)-1:0];
   integer                i;
   // Port-1 Operation - Read First
@@ -44,5 +68,6 @@ module cache_l2_memory_array#(
      end
     read_data_p2 <= ram_block[addr_p2];
   end
+`endif
 
 endmodule

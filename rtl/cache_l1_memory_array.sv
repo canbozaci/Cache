@@ -16,6 +16,26 @@ module cache_l1_memory_array#(
   input  [DATA_WIDTH-1:0] write_data, // data input
   output reg [DATA_WIDTH-1:0] read_data // data output
   );
+
+`ifdef SRAM_MACRO_ENABLE
+`ifndef CACHE_L1_MEMORY_ARRAY_MACRO
+  `error "SRAM_MACRO_ENABLE requires CACHE_L1_MEMORY_ARRAY_MACRO"
+`endif
+
+  `CACHE_L1_MEMORY_ARRAY_MACRO #(
+    .DATA_WIDTH(DATA_WIDTH),
+    .ADDR_WIDTH(ADDR_WIDTH),
+    .BYTE_COUNT(BYTE_COUNT),
+    .RAM_DEPTH(RAM_DEPTH)
+  ) cache_l1_memory_array_macro_inst (
+    .clk(clk),
+    .we(we),
+    .byte_enable(byte_enable),
+    .addr(addr),
+    .write_data(write_data),
+    .read_data(read_data)
+  );
+`else
   reg [DATA_WIDTH-1:0] mem [0:RAM_DEPTH-1];
   integer byte_index;
   // Port-1 Operation Read First
@@ -29,5 +49,6 @@ module cache_l1_memory_array#(
     end
     read_data <= mem[addr];
   end
+`endif
 
   endmodule

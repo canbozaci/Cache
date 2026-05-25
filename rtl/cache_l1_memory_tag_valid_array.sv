@@ -18,6 +18,28 @@ module cache_l1_memory_tag_valid_array#(
   input  [DATA_WIDTH-1:0] write_data, // data input
   output reg [DATA_WIDTH-1:0] read_data // data output
   );
+
+`ifdef SRAM_MACRO_ENABLE
+`ifndef CACHE_L1_TAG_VALID_ARRAY_MACRO
+  `error "SRAM_MACRO_ENABLE requires CACHE_L1_TAG_VALID_ARRAY_MACRO"
+`endif
+
+  `CACHE_L1_TAG_VALID_ARRAY_MACRO #(
+    .DATA_WIDTH(DATA_WIDTH),
+    .ADDR_WIDTH(ADDR_WIDTH),
+    .RAM_DEPTH(RAM_DEPTH)
+  ) cache_l1_tag_valid_array_macro_inst (
+    .clk(clk),
+    .rst(rst),
+    .we(we),
+    .invalidate(invalidate),
+    .addr(addr),
+    .invalidate_addr(invalidate_addr),
+    .invalidate_tag(invalidate_tag),
+    .write_data(write_data),
+    .read_data(read_data)
+  );
+`else
   // Core Memory
   reg [DATA_WIDTH-1:0] mem [0:RAM_DEPTH-1];
   integer mem_index;
@@ -41,5 +63,6 @@ module cache_l1_memory_tag_valid_array#(
       read_data <= mem[addr];
     end
   end
+`endif
 
   endmodule

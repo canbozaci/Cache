@@ -22,6 +22,32 @@ module cache_l2_memory_tag_valid_array#(
   output reg [DATA_WIDTH-1:0] read_data_p2  // data out port 2
   );
 
+`ifdef SRAM_MACRO_ENABLE
+`ifndef CACHE_L2_TAG_VALID_ARRAY_MACRO
+  `error "SRAM_MACRO_ENABLE requires CACHE_L2_TAG_VALID_ARRAY_MACRO"
+`endif
+
+  `CACHE_L2_TAG_VALID_ARRAY_MACRO #(
+    .NUM_COL(NUM_COL),
+    .COL_WIDTH(COL_WIDTH),
+    .ADDR_WIDTH(ADDR_WIDTH),
+    .DATA_WIDTH(DATA_WIDTH)
+  ) cache_l2_tag_valid_array_macro_inst (
+    .clk(clk),
+    .rst(rst),
+    .we_p1(we_p1),
+    .we_p2(we_p2),
+    .invalidate(invalidate),
+    .addr_p1(addr_p1),
+    .addr_p2(addr_p2),
+    .invalidate_addr(invalidate_addr),
+    .invalidate_tag(invalidate_tag),
+    .write_data_p1(write_data_p1),
+    .write_data_p2(write_data_p2),
+    .read_data_p1(read_data_p1),
+    .read_data_p2(read_data_p2)
+  );
+`else
   // Core Memory
   reg [DATA_WIDTH-1:0] ram_block [(2**ADDR_WIDTH)-1:0];
   integer mem_index;
@@ -49,5 +75,6 @@ module cache_l2_memory_tag_valid_array#(
       read_data_p2 <= ram_block[addr_p2];
     end
   end
+`endif
 
 endmodule
