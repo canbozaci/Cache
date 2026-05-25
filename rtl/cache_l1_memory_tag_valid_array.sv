@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Can Bozaci
+
 // Synthesizable single-port L1 cache tag/valid memory array model.
 // Words: 64
 // Word size: 128

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Can Bozaci
+
 // Synthesizable dual-port L2 cache line memory array model with byte enables.
 module cache_l2_memory_array#(
    parameter   NUM_COL             =   16,// no byte enables

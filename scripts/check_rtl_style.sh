@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Can Bozaci
+
 set -euo pipefail
 
 if rg -n '\b(function|endfunction)\b|initial[[:space:]]+begin' rtl; then

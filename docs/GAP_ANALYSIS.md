@@ -16,16 +16,12 @@ This file tracks only unresolved gaps for the generic cache IP. Stable baseline 
 
 - Assertions and functional coverage are missing.
 
-## Remaining Documentation Gaps
-
-- License and reuse terms still need to be checked before describing the IP as redistributable.
-
 ## Priority Plan
 
 P0 before first real version:
 
 - Keep `make verify` passing after every update.
-- Review license and reuse terms before describing the IP as redistributable.
+- Keep release collateral aligned with the current public IP contract.
 
 P1 for stronger bus-width genericity:
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Can Bozaci
+
 `timescale 1ns / 1ps
 module cache_way_select#( // Whether set0 output or set1 output to cache output, the module that chooses accordingly
     parameter LINE_WIDTH = 128

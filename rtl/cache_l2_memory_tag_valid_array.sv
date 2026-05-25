@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Can Bozaci
+
 // Synthesizable dual-port L2 cache tag/valid memory array model.
 module cache_l2_memory_tag_valid_array#(
   parameter   NUM_COL             =   1, // no byte enables

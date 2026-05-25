@@ -56,3 +56,7 @@ Memory-side bus adaptation belongs outside this repository in a memory-side adap
 See `docs/GAP_ANALYSIS.md` for current design, verification, documentation, and architecture gaps.
 
 The current parameter contract is documented in `docs/PARAMETERS.md`. The public timing and integration contract is documented in `docs/TIMING_CONTRACT.md`.
+
+## License
+
+This project is licensed under the Apache License, Version 2.0. See `LICENSE` and `NOTICE` for details.

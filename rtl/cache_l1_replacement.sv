@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Can Bozaci
+
 `timescale 1ns / 1ps
 module cache_l1_replacement#(
       parameter INDEX_WIDTH = 6,
