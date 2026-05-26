@@ -55,7 +55,12 @@ module cache_controller #(
         output reg instr_cache_read,
         output memory_write,
         output reg write_through,
-        output reg instr_write_start
+        output reg instr_write_start,
+        output reg instr_hit_done,
+        output reg instr_fill_done,
+        output reg data_read_hit_done,
+        output reg data_fill_done,
+        output reg data_write_internal_done
         );
     localparam LINE_MEM_BEAT_COUNT = LINE_WIDTH / MEM_DATA_WIDTH;
     localparam [7:0] LINE_MEM_LAST_BEAT =
@@ -331,8 +336,12 @@ module cache_controller #(
             main_mem_transfer_instr   <= 1'b0;
             L2_write_p2       <= 1'b0;
             state_instr         <= state_instr_idle;
+            instr_hit_done <= 1'b0;
+            instr_fill_done <= 1'b0;
         end
         else begin
+            instr_hit_done <= 1'b0;
+            instr_fill_done <= 1'b0;
             case(state_instr)
                 state_instr_idle: begin // idle state read var mi diye bakiyor surekli
                     if(instr_request) begin // read request
@@ -357,7 +366,7 @@ module cache_controller #(
                     if(L1_instr_hit & ~L1_miss_next) begin // basarili sekilde okundu
                         miss_L1_instr <= 1'b0;
                         state_instr   <= state_instr_idle;
-                        instr_cache_read <= 1'b0;
+                        instr_hit_done <= 1'b1;
                     end
                     else begin // L1_instr cache'de miss
                         // Eger ki miss_next ise write_next'yu 1'e cek sonraki adrese yazilsin.
@@ -411,8 +420,8 @@ module cache_controller #(
                     if(L1_instr_hit) begin
                         miss_L1_instr    <= 1'b0;
                         write_next     <= 1'b0;
-                        instr_cache_read <= 1'b0;
                         state_instr      <= state_instr_idle;
+                        instr_fill_done <= 1'b1;
                     end
                 end
 
@@ -447,9 +456,9 @@ module cache_controller #(
                     instr_write_start <= 1'b0;
                     if(L1_instr_hit & ~L1_miss_next) begin
                         miss_L1_instr    <= 1'b0;
-                        instr_cache_read <= 1'b0;
                         write_next     <= 1'b0;
                         state_instr      <= state_instr_idle;
+                        instr_fill_done <= 1'b1;
                     end
                 end
 
@@ -581,8 +590,14 @@ module cache_controller #(
             data_write_beat_index            <= 8'b0;
             ram_write_start_data          <= 1'b0;
             state_data                      <= state_data_idle;
+            data_read_hit_done <= 1'b0;
+            data_fill_done <= 1'b0;
+            data_write_internal_done <= 1'b0;
         end
         else begin
+            data_read_hit_done <= 1'b0;
+            data_fill_done <= 1'b0;
+            data_write_internal_done <= 1'b0;
             case(state_data)
             state_data_idle: begin
                 if(data_read_request) begin // read request
@@ -620,8 +635,8 @@ module cache_controller #(
             state_data_read: begin
                 if(L1_data_hit) begin
                     miss_L1_data   <= 1'b0;
-                    data_cache_read <= 1'b0;
                     state_data     <= state_data_idle;
+                    data_read_hit_done <= 1'b1;
                 end
                 else begin
                     L2_read_p1  <= 1'b1;
@@ -662,8 +677,8 @@ module cache_controller #(
                 if(L1_data_hit) begin
                     write_L2   <= 1'b0;
                     miss_L1_data <= 1'b0;
-                    data_cache_read <= 1'b0;
                     state_data   <= state_data_idle;
+                    data_fill_done <= 1'b1;
                 end
             end
             state_data_miss_L2_step: begin
@@ -703,10 +718,10 @@ module cache_controller #(
                 write_L2          <= 1'b0;
                 if(L1_data_hit) begin
                     miss_L1_data        <= 1'b0;
-                    data_cache_read <= 1'b0;
                     write_through     <= 1'b0;
                     write_through_miss  <= 1'b0;
                     state_data          <= state_data_idle;
+                    data_fill_done <= 1'b1;
                 end
             end
 
@@ -797,6 +812,7 @@ module cache_controller #(
                         data_cache_read <= 1'b0;
                         write_through         <= 1'b0;
                         state_data              <= state_data_idle;
+                        data_write_internal_done <= 1'b1;
                     end
                 end
             end

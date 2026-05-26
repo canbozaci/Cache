@@ -92,8 +92,11 @@ module cache #(
     localparam STATE_RUN = 2'd1;
 
     reg [1:0] state_q;
-    reg [7:0] run_age_q;
-    reg core_activity_seen_q;
+    reg instr_request_issued_q;
+    reg data_request_issued_q;
+    reg instr_done_seen_q;
+    reg data_done_seen_q;
+    reg data_write_internal_done_seen_q;
     reg active_instr_q;
     reg active_data_q;
     reg active_data_write_q;
@@ -194,7 +197,16 @@ module cache #(
     wire accept_instr;
     wire accept_data;
     wire start_core_transaction;
-    wire complete_write_responses;
+    wire instr_hit_done;
+    wire instr_fill_done;
+    wire data_read_hit_done;
+    wire data_fill_done;
+    wire data_write_internal_done;
+    wire memory_write_responses_done;
+    wire transaction_error_done;
+    wire instr_transaction_done;
+    wire data_read_transaction_done;
+    wire data_write_transaction_done;
     wire complete_core_transaction;
     wire read_error_handshake;
     wire write_rsp_handshake;
@@ -230,15 +242,24 @@ module cache #(
     assign start_core_transaction = (accept_instr | accept_data) & (~accept_data | data_request_legal);
     assign read_error_handshake = mem_rd_rsp_valid & mem_rd_rsp_ready & mem_rd_rsp_error;
     assign write_rsp_handshake = mem_wr_rsp_valid & mem_wr_rsp_ready;
-    assign complete_write_responses = ~active_data_write_q |
-                                      ((write_req_count_q != 8'd0) &&
-                                       (write_rsp_count_q == write_req_count_q) &&
-                                       !mem_wr_rsp_valid);
-    assign complete_core_transaction = (state_q == STATE_RUN) & ~busy & ~mem_req_valid &
-                                       ~mem_rd_rsp_valid & ~mem_wr_rsp_valid &
-                                       complete_write_responses &
-                                       ((!core_activity_seen_q & (run_age_q >= 8'd6)) |
-                                        (core_activity_seen_q & (run_age_q >= 8'd32)));
+    assign memory_write_responses_done =
+        ~active_data_write_q |
+        ((write_req_count_q != 8'd0) &&
+         ((write_rsp_count_q + (write_rsp_handshake ? 8'd1 : 8'd0)) == write_req_count_q) &&
+         (!mem_wr_rsp_valid | write_rsp_handshake));
+    assign transaction_error_done = read_error_handshake;
+    assign instr_transaction_done = instr_hit_done | instr_fill_done;
+    assign data_read_transaction_done = data_read_hit_done | data_fill_done;
+    assign data_write_transaction_done =
+        (data_write_internal_done_seen_q | data_write_internal_done | data_fill_done) &
+        memory_write_responses_done;
+    assign complete_core_transaction =
+        (state_q == STATE_RUN) &
+        (!active_instr_q | instr_done_seen_q | instr_transaction_done | transaction_error_done) &
+        (!active_data_q |
+         (active_data_write_q ? data_write_transaction_done :
+                                (data_done_seen_q | data_read_transaction_done)) |
+         transaction_error_done);
     assign core_rst = rst | core_abort_q;
     assign mem_rsp_valid = mem_rd_rsp_valid & mem_rd_rsp_ready & ~mem_rd_rsp_error;
     assign mem_rsp_rdata = mem_rd_rsp_rdata;
@@ -250,9 +271,11 @@ module cache #(
     assign data_rsp_valid = data_rsp_valid_q;
     assign data_rsp_rdata = data_rsp_rdata_q;
     assign data_rsp_error = data_rsp_error_q;
-    assign core_instr_request = (state_q == STATE_RUN) & active_instr_q;
-    assign core_data_read_request = (state_q == STATE_RUN) & active_data_q & ~active_data_write_q;
-    assign core_data_write_request = (state_q == STATE_RUN) & active_data_q & active_data_write_q & (run_age_q < 8'd2);
+    assign core_instr_request = (state_q == STATE_RUN) & active_instr_q & ~instr_request_issued_q;
+    assign core_data_read_request =
+        (state_q == STATE_RUN) & active_data_q & ~active_data_write_q & ~data_request_issued_q;
+    assign core_data_write_request =
+        (state_q == STATE_RUN) & active_data_q & active_data_write_q & ~data_request_issued_q;
 
     assign mem_req_valid = mem_read_internal | mem_write_internal;
     assign mem_req_write = mem_write_internal;
@@ -309,8 +332,11 @@ module cache #(
     always @(posedge clk) begin
         if (rst) begin
             state_q <= STATE_IDLE;
-            run_age_q <= 8'd0;
-            core_activity_seen_q <= 1'b0;
+            instr_request_issued_q <= 1'b0;
+            data_request_issued_q <= 1'b0;
+            instr_done_seen_q <= 1'b0;
+            data_done_seen_q <= 1'b0;
+            data_write_internal_done_seen_q <= 1'b0;
             active_instr_q <= 1'b0;
             active_data_q <= 1'b0;
             active_data_write_q <= 1'b0;
@@ -344,8 +370,11 @@ module cache #(
                 data_rsp_error_q <= 1'b1;
             end else if (start_core_transaction) begin
                 state_q <= STATE_RUN;
-                run_age_q <= 8'd0;
-                core_activity_seen_q <= 1'b0;
+                instr_request_issued_q <= 1'b0;
+                data_request_issued_q <= 1'b0;
+                instr_done_seen_q <= 1'b0;
+                data_done_seen_q <= 1'b0;
+                data_write_internal_done_seen_q <= 1'b0;
                 active_instr_q <= accept_instr;
                 active_data_q <= accept_data;
                 active_data_write_q <= accept_data & data_req_write;
@@ -357,11 +386,11 @@ module cache #(
                 write_req_count_q <= 8'd0;
                 write_rsp_count_q <= 8'd0;
             end else if (state_q == STATE_RUN) begin
-                if (run_age_q != 8'hff) begin
-                    run_age_q <= run_age_q + 8'd1;
+                if (core_instr_request) begin
+                    instr_request_issued_q <= 1'b1;
                 end
-                if (busy | mem_req_valid | mem_rd_rsp_valid | mem_wr_rsp_valid) begin
-                    core_activity_seen_q <= 1'b1;
+                if (core_data_read_request | core_data_write_request) begin
+                    data_request_issued_q <= 1'b1;
                 end
                 if (mem_req_valid & mem_req_ready & mem_req_write) begin
                     write_req_count_q <= write_req_count_q + 8'd1;
@@ -369,6 +398,23 @@ module cache #(
                 if (write_rsp_handshake) begin
                     write_rsp_count_q <= write_rsp_count_q + 8'd1;
                     write_error_seen_q <= write_error_seen_q | mem_wr_rsp_error;
+                end
+                if (instr_transaction_done) begin
+                    instr_done_seen_q <= 1'b1;
+                    if (active_instr_q) begin
+                        instr_rsp_data_q <= instr_resp_data;
+                        instr_rsp_error_q <= 1'b0;
+                    end
+                end
+                if (data_read_transaction_done & ~active_data_write_q) begin
+                    data_done_seen_q <= 1'b1;
+                    if (active_data_q) begin
+                        data_rsp_rdata_q <= data_resp_rdata;
+                        data_rsp_error_q <= 1'b0;
+                    end
+                end
+                if (data_write_internal_done | data_fill_done) begin
+                    data_write_internal_done_seen_q <= active_data_write_q;
                 end
                 if (read_error_handshake) begin
                     state_q <= STATE_IDLE;
@@ -388,16 +434,27 @@ module cache #(
                     active_data_write_q <= 1'b0;
                 end else if (complete_core_transaction) begin
                     state_q <= STATE_IDLE;
-                    if (active_instr_q) begin
+                    if (active_instr_q & ~instr_rsp_valid_q) begin
                         instr_rsp_valid_q <= 1'b1;
-                        instr_rsp_data_q <= instr_resp_data;
+                        instr_rsp_data_q <= instr_transaction_done ? instr_resp_data : instr_rsp_data_q;
                         instr_rsp_error_q <= 1'b0;
                     end
-                    if (active_data_q) begin
+                    if (active_data_q & ~active_data_write_q & ~data_rsp_valid_q) begin
                         data_rsp_valid_q <= 1'b1;
-                        data_rsp_rdata_q <= active_data_write_q ? {DATA_WIDTH{1'b0}} : data_resp_rdata;
-                        data_rsp_error_q <= active_data_write_q & write_error_seen_q;
+                        data_rsp_rdata_q <= data_read_transaction_done ? data_resp_rdata : data_rsp_rdata_q;
+                        data_rsp_error_q <= 1'b0;
                     end
+                    if (active_data_q & active_data_write_q & ~data_rsp_valid_q) begin
+                        data_rsp_valid_q <= 1'b1;
+                        data_rsp_rdata_q <= {DATA_WIDTH{1'b0}};
+                        data_rsp_error_q <= write_error_seen_q |
+                                            (write_rsp_handshake & mem_wr_rsp_error);
+                    end
+                    instr_request_issued_q <= 1'b0;
+                    data_request_issued_q <= 1'b0;
+                    instr_done_seen_q <= 1'b0;
+                    data_done_seen_q <= 1'b0;
+                    data_write_internal_done_seen_q <= 1'b0;
                     active_instr_q <= 1'b0;
                     active_data_q <= 1'b0;
                     active_data_write_q <= 1'b0;
@@ -611,7 +668,12 @@ module cache #(
         .instr_cache_read(instr_cache_read),
         .memory_write(mem_write_internal),
         .write_through(write_through),
-        .instr_write_start(instr_write_start)
+        .instr_write_start(instr_write_start),
+        .instr_hit_done(instr_hit_done),
+        .instr_fill_done(instr_fill_done),
+        .data_read_hit_done(data_read_hit_done),
+        .data_fill_done(data_fill_done),
+        .data_write_internal_done(data_write_internal_done)
     );
 
 endmodule
