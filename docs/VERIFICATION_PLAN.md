@@ -26,7 +26,8 @@ The block tests check:
 
 `make scoreboard` builds and runs `tb/cache_scoreboard_tb.sv` across multiple configurations.
 
-The scoreboard keeps an independent byte-addressed reference memory initialized to match `tb/cache_memory_model.sv`. It checks:
+The scoreboard keeps an independent byte-addressed reference memory initialized to match
+`tb/cache_memory_model.sv`. It checks:
 
 - Cold data reads from external memory.
 - L1 hit reads after a fill.
@@ -48,11 +49,15 @@ The scoreboard keeps an independent byte-addressed reference memory initialized 
 - Illegal maintenance request combinations returning `maint_error`.
 - Queued maintenance requests accepted while cache traffic is active.
 - Reset during an active transaction and repeated reset recovery.
-- The documented unsupported I/D coherency contract: data-side writes do not update an already-filled instruction L1 line until maintenance invalidates the line.
+- The documented unsupported I/D coherency contract: data-side writes do not update an
+  already-filled instruction L1 line until maintenance invalidates the line.
 
-`make random-scoreboard` generates six legal parameter combinations from a time-based seed and runs the scoreboard on them. The runner prints the seed and accepts `RANDOM_SEED=<seed>` and `RANDOM_CASE_COUNT=<count>` overrides for reproducing failures.
+`make random-scoreboard` generates six legal parameter combinations from a time-based seed and runs
+the scoreboard on them. The runner prints the seed and accepts `RANDOM_SEED=<seed>` and
+`RANDOM_CASE_COUNT=<count>` overrides for reproducing failures.
 
-`make verify` runs `make check`, `make scoreboard`, `make random-scoreboard`, `make block-tests`, and `make parameter-compile`.
+`make verify` runs `make check`, `make scoreboard`, `make random-scoreboard`, `make block-tests`,
+and `make parameter-compile`.
 
 Current scoreboard configurations:
 
@@ -74,7 +79,8 @@ Current scoreboard configurations:
 - `ADDR_WIDTH=20`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 - `DATA_WIDTH=32`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 - `DATA_WIDTH=128`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
-- `ADDR_WIDTH=20`, `DATA_WIDTH=32`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`, `L1_DATA_SET_COUNT=32`, `L1_INSTR_SET_COUNT=64`, `L2_SET_COUNT=128`
+- `ADDR_WIDTH=20`, `DATA_WIDTH=32`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`, `L1_DATA_SET_COUNT=32`,
+  `L1_INSTR_SET_COUNT=64`, `L2_SET_COUNT=128`
 - `DATA_WIDTH=128`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`, `L1_SET_COUNT=32`, `L2_SET_COUNT=128`
 
 Random scoreboard parameters are selected from the currently supported legal set:
@@ -105,10 +111,12 @@ Random scoreboard parameters are selected from the currently supported legal set
 - `ADDR_WIDTH=20`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 - `DATA_WIDTH=32`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
 - `DATA_WIDTH=128`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`
-- `ADDR_WIDTH=20`, `DATA_WIDTH=32`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`, `L1_DATA_SET_COUNT=32`, `L1_INSTR_SET_COUNT=64`, `L2_SET_COUNT=128`
+- `ADDR_WIDTH=20`, `DATA_WIDTH=32`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`, `L1_DATA_SET_COUNT=32`,
+  `L1_INSTR_SET_COUNT=64`, `L2_SET_COUNT=128`
 - `DATA_WIDTH=128`, `MEM_DATA_WIDTH=64`, `LINE_WIDTH=256`, `L1_SET_COUNT=32`, `L2_SET_COUNT=128`
 
-This is a compile/lint compatibility gate. Scoreboard covers the same single-parameter and combined width overrides listed above.
+This is a compile/lint compatibility gate. Scoreboard covers the same single-parameter and combined
+width overrides listed above.
 
 ## Current Result
 
@@ -120,15 +128,20 @@ Known cache areas not yet covered:
 
 Adaptor/integration responsibilities:
 
-- CPU adaptors must include negative contract tests that split transfers crossing a cache-line boundary before they reach this cache.
-- Memory adaptors or higher-level SoC tests must cover bus-specific burst coalescing and protocol encoding.
+- CPU adaptors must include negative contract tests that split transfers crossing a cache-line
+  boundary before they reach this cache.
+- Memory adaptors or higher-level SoC tests must cover bus-specific burst coalescing and protocol
+  encoding.
 
 ## Parameter Verification Direction
 
-The current supported parameter set is documented in `docs/PARAMETERS.md`. Before any non-default value is advertised as supported, verification should add:
+The current supported parameter set is documented in `docs/PARAMETERS.md`. Before any non-default
+value is advertised as supported, verification should add:
 
 - A compile/lint sweep for the new parameter value.
 - A scoreboard run for at least one non-default cache geometry when the testbench supports it.
-- Directed tests for line-fill beat count, write-strobe width, address offset decode, and partial writes at line boundaries.
+- Directed tests for line-fill beat count, write-strobe width, address offset decode, and partial
+  writes at line boundaries.
 
-The next design work should keep this scoreboard passing before simplifying controller wiring or changing cache internals.
+The next design work should keep this scoreboard passing before simplifying controller wiring or
+changing cache internals.

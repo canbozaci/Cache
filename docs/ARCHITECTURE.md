@@ -2,7 +2,8 @@
 
 ## Product Profile
 
-`cache` is a reusable, non-coherent, blocking, write-through SystemVerilog cache subsystem for embedded and single-core integration.
+`cache` is a reusable, non-coherent, blocking, write-through SystemVerilog cache subsystem for
+embedded and single-core integration.
 
 Supported profile:
 
@@ -24,7 +25,8 @@ Not supported yet:
 
 ## Repository Boundaries
 
-This repository contains only the reusable generic cache IP. CPU-side and memory-side bus adaptors are intentionally kept in sibling repositories.
+This repository contains only the reusable generic cache IP. CPU-side and memory-side bus adaptors
+are intentionally kept in sibling repositories.
 
 ```text
 filelists/rtl.f     Reusable cache build list
@@ -35,18 +37,25 @@ rtl/                     All synthesizable cache RTL
 
 ## Reusable Core Interface
 
-`cache` is the architecture-neutral integration point. It accepts generic instruction and data requests:
+`cache` is the architecture-neutral integration point. It accepts generic instruction and data
+requests:
 
 - Instruction side: valid plus byte address, returning raw 32-bit fetch data.
-- Data side: read/write command, byte address, raw write data, byte write strobes, and raw read data.
-- Memory side: single-clock native request/response interface for line fills and write-through traffic.
+- Data side: read/write command, byte address, raw write data, byte write strobes, and raw read
+  data.
+- Memory side: single-clock native request/response interface for line fills and write-through
+  traffic.
 - Maintenance side: queued global and address-selective line flush/invalidate requests.
 
-The cache does not consume ISA-specific load/store encoding values and does not perform sign extension.
+The cache does not consume ISA-specific load/store encoding values and does not perform sign
+extension.
 
-The cycle-level request, response, reset, maintenance, and native memory timing rules are frozen in `docs/TIMING_CONTRACT.md`.
+The cycle-level request, response, reset, maintenance, and native memory timing rules are frozen in
+`docs/TIMING_CONTRACT.md`.
 
-The cache has one clock, `clk`. External memory can run at any frequency, but clock crossing is not part of the generic cache. A memory adaptor must bridge the native cache memory interface into the target memory clock domain, using an async FIFO or another CDC structure when needed.
+The cache has one clock, `clk`. External memory can run at any frequency, but clock crossing is not
+part of the generic cache. A memory adaptor must bridge the native cache memory interface into the
+target memory clock domain, using an async FIFO or another CDC structure when needed.
 
 The native memory request channel is:
 
@@ -75,7 +84,8 @@ The native memory write response channel is:
 - `mem_wr_rsp_ready`
 - `mem_wr_rsp_error`
 
-Reads complete when the matching read responses are accepted. Write-through writes complete only after all matching write responses are accepted.
+Reads complete when the matching read responses are accepted. Write-through writes complete only
+after all matching write responses are accepted.
 
 The maintenance channel is:
 
@@ -89,11 +99,20 @@ The maintenance channel is:
 - `maint_done`
 - `maint_error`
 
-The cache has a fixed single-entry maintenance queue. This depth is intentional and is not parameterized. A maintenance request can be accepted while cache traffic is active when `maint_ready` is high. If accepted during active traffic, the operation is held until current cache traffic drains, then `maint_done` or `maint_error` pulses. External logic must pace back-to-back maintenance requests with `maint_ready`, `maint_done`, and `maint_error`.
+The cache has a fixed single-entry maintenance queue. This depth is intentional and is not
+parameterized. A maintenance request can be accepted while cache traffic is active when
+`maint_ready` is high. If accepted during active traffic, the operation is held until current cache
+traffic drains, then `maint_done` or `maint_error` pulses. External logic must pace back-to-back
+maintenance requests with `maint_ready`, `maint_done`, and `maint_error`.
 
-Global invalidate clears cache valid state. Global flush is a no-op because the cache is write-through. Address-selective line invalidate clears matching tag/valid entries for `maint_addr` in L1 data, L1 instruction, and L2. Address-selective line flush is also a write-through no-op. Global and line requests must not be asserted together; line requests require `maint_addr_valid`.
+Global invalidate clears cache valid state. Global flush is a no-op because the cache is
+write-through. Address-selective line invalidate clears matching tag/valid entries for `maint_addr`
+in L1 data, L1 instruction, and L2. Address-selective line flush is also a write-through no-op.
+Global and line requests must not be asserted together; line requests require `maint_addr_valid`.
 
-Instruction and data L1 caches are not coherent after data-side writes. This is an intentional integration contract, not an accidental cache miss behavior. Software or an external adaptor must invalidate an affected line before fetching modified data as instructions.
+Instruction and data L1 caches are not coherent after data-side writes. This is an intentional
+integration contract, not an accidental cache miss behavior. Software or an external adaptor must
+invalidate an affected line before fetching modified data as instructions.
 
 The native cache memory interface is beat-based with burst metadata:
 
@@ -106,12 +125,16 @@ The native cache memory interface is beat-based with burst metadata:
 - `mem_req_beat_index` is the zero-based beat number within that line fill.
 - `mem_req_burst_start` is asserted on beat 0.
 - `mem_req_burst_last` is asserted on the final line-fill beat.
-- Write-through traffic is emitted as ordered contiguous write beats when a data-side write spans more than one native memory beat.
+- Write-through traffic is emitted as ordered contiguous write beats when a data-side write spans
+  more than one native memory beat.
 - Multi-beat write-through traffic uses the same burst metadata fields as line-fill reads.
-- Single-beat write-through traffic reports `mem_req_burst=0`, `mem_req_burst_len=1`, and `mem_req_beat_index=0`.
+- Single-beat write-through traffic reports `mem_req_burst=0`, `mem_req_burst_len=1`, and
+  `mem_req_beat_index=0`.
 - The generic cache does not expose bus-specific burst type, lock, exclusive, or ID fields.
 
-Memory adaptors may use the burst metadata to coalesce cache read or write beats into a target bus burst. That coalescing is an adaptor optimization and must preserve the cache-visible beat order and response contract. See `docs/NATIVE_MEMORY_PROTOCOL.md` and `docs/ERROR_HANDLING.md`.
+Memory adaptors may use the burst metadata to coalesce cache read or write beats into a target bus
+burst. That coalescing is an adaptor optimization and must preserve the cache-visible beat order and
+response contract. See `docs/NATIVE_MEMORY_PROTOCOL.md` and `docs/ERROR_HANDLING.md`.
 
 `cache` can be checked without any CPU adapter:
 
@@ -121,7 +144,12 @@ make compile-cache
 
 ## Parameter Contract
 
-The public top exposes `ADDR_WIDTH`, `DATA_WIDTH`, `MEM_DATA_WIDTH`, `LINE_WIDTH`, `L1_SET_COUNT`, `L1_DATA_SET_COUNT`, `L1_INSTR_SET_COUNT`, and `L2_SET_COUNT`. L1 and L2 index widths are derived from the set counts. `L1_DATA_SET_COUNT` and `L1_INSTR_SET_COUNT` default to `L1_SET_COUNT`, but can be overridden independently for ASIC SRAM macro mappings. The current verified matrix is documented in `docs/PARAMETERS.md`; it includes the default configuration plus selected single-parameter and combined non-default configurations:
+The public top exposes `ADDR_WIDTH`, `DATA_WIDTH`, `MEM_DATA_WIDTH`, `LINE_WIDTH`, `L1_SET_COUNT`,
+`L1_DATA_SET_COUNT`, `L1_INSTR_SET_COUNT`, and `L2_SET_COUNT`. L1 and L2 index widths are derived
+from the set counts. `L1_DATA_SET_COUNT` and `L1_INSTR_SET_COUNT` default to `L1_SET_COUNT`, but can
+be overridden independently for ASIC SRAM macro mappings. The current verified matrix is documented
+in `docs/PARAMETERS.md`; it includes the default configuration plus selected single-parameter and
+combined non-default configurations:
 
 - `ADDR_WIDTH = 19`
 - `DATA_WIDTH = 64`
@@ -134,10 +162,13 @@ The public top exposes `ADDR_WIDTH`, `DATA_WIDTH`, `MEM_DATA_WIDTH`, `LINE_WIDTH
 
 The current L1 and L2 way count is fixed at 2.
 
-See `docs/PARAMETERS.md` for legal values, derived widths, unsupported combinations, and the bus-width genericity roadmap.
+See `docs/PARAMETERS.md` for legal values, derived widths, unsupported combinations, and the
+bus-width genericity roadmap.
 
 ## Adaptor Repositories
 
 The CPU adaptor repository owns load/store formatting and CPU-facing port conventions.
 
-The memory adaptor repository owns translation from the beat-based native cache memory side into a SoC bus protocol. It also owns bus-specific burst encoding, burst coalescing, and CDC required by the target memory subsystem.
+The memory adaptor repository owns translation from the beat-based native cache memory side into a
+SoC bus protocol. It also owns bus-specific burst encoding, burst coalescing, and CDC required by
+the target memory subsystem.

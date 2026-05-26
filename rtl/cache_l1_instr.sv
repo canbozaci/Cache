@@ -45,7 +45,11 @@ module cache_l1_instr #(
     wire cache_set_output_select;
     wire [LINE_WIDTH/8-1:0] full_line_byte_enable;
 
-    assign tag_input = addr[TAG_WIDTH+INDEX_WIDTH+WORD_OFFSET_WIDTH+BYTE_OFFSET_WIDTH-1:INDEX_WIDTH+WORD_OFFSET_WIDTH+BYTE_OFFSET_WIDTH];
+    assign tag_input =
+        addr[
+            TAG_WIDTH + INDEX_WIDTH + WORD_OFFSET_WIDTH + BYTE_OFFSET_WIDTH - 1:
+            INDEX_WIDTH + WORD_OFFSET_WIDTH + BYTE_OFFSET_WIDTH
+        ];
     assign idx_input = addr[INDEX_WIDTH+WORD_OFFSET_WIDTH+BYTE_OFFSET_WIDTH-1:WORD_OFFSET_WIDTH+BYTE_OFFSET_WIDTH];
     assign word_input = addr[WORD_OFFSET_WIDTH+BYTE_OFFSET_WIDTH-1:BYTE_OFFSET_WIDTH];
     assign offset_input = addr[BYTE_OFFSET_WIDTH-1:0];

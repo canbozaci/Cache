@@ -258,10 +258,12 @@ module cache #(
     assign mem_req_write = mem_write_internal;
     assign mem_req_burst = (mem_read_internal & ~mem_write_internal & (LINE_MEM_BEAT_COUNT != 1)) |
                            (mem_write_internal & (mem_write_burst_len_internal != 8'd1));
-    assign mem_req_burst_len = mem_write_internal ? mem_write_burst_len_internal :
-                               ((mem_read_internal & (LINE_MEM_BEAT_COUNT != 1)) ? LINE_MEM_BEAT_COUNT_8 : 8'd1);
-    assign mem_req_beat_index = mem_write_internal ? mem_write_beat_index_internal :
-                                ((mem_read_internal & (LINE_MEM_BEAT_COUNT != 1)) ? mem_read_beat_index_internal : 8'd0);
+    assign mem_req_burst_len =
+        mem_write_internal ? mem_write_burst_len_internal :
+        ((mem_read_internal & (LINE_MEM_BEAT_COUNT != 1)) ? LINE_MEM_BEAT_COUNT_8 : 8'd1);
+    assign mem_req_beat_index =
+        mem_write_internal ? mem_write_beat_index_internal :
+        ((mem_read_internal & (LINE_MEM_BEAT_COUNT != 1)) ? mem_read_beat_index_internal : 8'd0);
     assign mem_req_burst_start = mem_req_burst & (mem_req_beat_index == 8'd0);
     assign mem_req_burst_last = mem_req_burst &
                                 (mem_req_beat_index == (mem_req_burst_len - 8'd1));
@@ -445,7 +447,11 @@ module cache #(
             end
             if (mem_rsp_valid_q && l2_write_p1 && !mem_write_internal) begin
                 data_memory_fill_active <= 1'b1;
-                for (fill_byte_index = 0; fill_byte_index < LINE_BYTE_COUNT; fill_byte_index = fill_byte_index + 1) begin
+                for (
+                    fill_byte_index = 0;
+                    fill_byte_index < LINE_BYTE_COUNT;
+                    fill_byte_index = fill_byte_index + 1
+                ) begin
                     if (l2_byte_enable_p1[fill_byte_index]) begin
                         data_memory_fill_block[fill_byte_index*8 +: 8] <=
                             mem_rsp_rdata_q[(fill_byte_index % MEM_BYTE_COUNT)*8 +: 8];
@@ -454,7 +460,11 @@ module cache #(
             end
             if (mem_rsp_valid_q && l2_write_p2) begin
                 instr_memory_fill_active <= 1'b1;
-                for (fill_byte_index = 0; fill_byte_index < LINE_BYTE_COUNT; fill_byte_index = fill_byte_index + 1) begin
+                for (
+                    fill_byte_index = 0;
+                    fill_byte_index < LINE_BYTE_COUNT;
+                    fill_byte_index = fill_byte_index + 1
+                ) begin
                     if (l2_byte_enable_p2[fill_byte_index]) begin
                         instr_memory_fill_block[fill_byte_index*8 +: 8] <=
                             mem_rsp_rdata_q[(fill_byte_index % MEM_BYTE_COUNT)*8 +: 8];

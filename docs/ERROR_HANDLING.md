@@ -17,9 +17,12 @@ If any native read response beat for a line fill has `mem_rd_rsp_error=1`:
 For write-through data writes:
 
 - the cache waits for all native write responses for the write beats;
-- if any write response has `mem_wr_rsp_error=1`, the data response completes with `data_rsp_error=1`;
+- if any write response has `mem_wr_rsp_error=1`, the data response completes with
+  `data_rsp_error=1`;
 - if all write responses succeed, the data response completes with `data_rsp_error=0`.
 
 ## Illegal CPU Requests
 
-The cache rejects data writes with all byte strobes cleared and data requests that cross a cache-line boundary. Rejected requests complete on the data response channel with `data_rsp_error=1` and zero read data.
+The cache rejects data writes with all byte strobes cleared and data requests that cross a
+cache-line boundary. Rejected requests complete on the data response channel with `data_rsp_error=1`
+and zero read data.

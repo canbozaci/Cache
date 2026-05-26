@@ -124,7 +124,8 @@ module cache_l2_replacement#(
         end
       end
 
-      if (~(read_p2 & read_p1 && (idx_p1 == idx_p2))) begin // Do not update if reading from addresses with the same index
+      // Do not update if reading from addresses with the same index
+      if (~(read_p2 & read_p1 && (idx_p1 == idx_p2))) begin
         if (hit_s1_p1 & read_p1) begin // if hit port 1  set 1 and read port 1 update lru holder idx_p1 to 0
             lru_holder_s2[idx_p1] <= 1'b0;
         end

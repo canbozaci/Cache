@@ -7,7 +7,8 @@ module cache_l2_memory_array#(
    parameter   COL_WIDTH           =   8, // 1 byte = 8 bits
    parameter   ADDR_WIDTH          =   8, // idx size = 8, log2(256) = 8 (256 = block no)
    // Addr  Width in bits : 2 *ADDR_WIDTH = RAM Depth
-   parameter   DATA_WIDTH      =  NUM_COL*COL_WIDTH  // Data  Width in bits = 1 byte * 16 = 16 byte = 128 bits ==> LINE SIZE
+   // Data  Width in bits = 1 byte * 16 = 16 byte = 128 bits ==> LINE SIZE
+   parameter   DATA_WIDTH      =  NUM_COL*COL_WIDTH
    )
    (
    input clk,// clock input

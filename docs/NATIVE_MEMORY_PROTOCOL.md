@@ -1,6 +1,7 @@
 # Native Memory Protocol
 
-The native memory side is a single-clock, one-outstanding, beat-based interface. It is not AXI, AHB, TileLink, or Wishbone. Bus adaptation belongs outside this repository.
+The native memory side is a single-clock, one-outstanding, beat-based interface. It is not AXI, AHB,
+TileLink, or Wishbone. Bus adaptation belongs outside this repository.
 
 ## Request Channel
 
@@ -22,7 +23,8 @@ The cache issues one logical native memory transaction at a time and does not us
 
 ## Read Response Channel
 
-Read responses use `mem_rd_rsp_valid`, `mem_rd_rsp_ready`, `mem_rd_rsp_rdata`, and `mem_rd_rsp_error`.
+Read responses use `mem_rd_rsp_valid`, `mem_rd_rsp_ready`, `mem_rd_rsp_rdata`, and
+`mem_rd_rsp_error`.
 
 Rules:
 
@@ -39,5 +41,6 @@ Rules:
 
 - A write response beat is accepted on `mem_wr_rsp_valid && mem_wr_rsp_ready`.
 - One accepted write request beat must produce exactly one write response beat.
-- A data-side write-through request is not complete until all corresponding write responses have been accepted.
+- A data-side write-through request is not complete until all corresponding write responses have
+  been accepted.
 - Any asserted `mem_wr_rsp_error` completes the data response with `data_rsp_error=1`.

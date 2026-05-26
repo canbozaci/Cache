@@ -2,19 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project intends to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
-when the first release is ready.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
+intends to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html) when the first release
+is ready.
 
 ## [Unreleased]
 
 ### Added
 
-- Reusable generic cache soft-IP structure with `rtl/`, `tb/`, `filelists/`, `scripts/`, and `docs/`.
+- Reusable generic cache soft-IP structure with `rtl/`, `tb/`, `filelists/`, `scripts/`, and
+  `docs/`.
 - Architecture-neutral `cache` top for embedded and single-core integration.
 - Native beat-based memory request/response interface with generic burst metadata.
 - Runtime global and address-selective maintenance operations.
-- Directed scoreboard, random scoreboard, block tests, lint/style checks, and parameter compile sweep.
+- Directed scoreboard, random scoreboard, block tests, lint/style checks, and parameter compile
+  sweep.
 - Apache-2.0 licensing collateral.
 - Release-management collateral for pre-release development.
 

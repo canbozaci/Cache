@@ -27,15 +27,17 @@ def legal_cases():
                     for l1_data_set_count in [16, 32, 64]:
                         for l1_instr_set_count in [16, 32, 64]:
                             for l2_set_count in [64, 128, 256]:
-                                cases.append({
-                                    "ADDR_WIDTH": addr_width,
-                                    "DATA_WIDTH": data_width,
-                                    "MEM_DATA_WIDTH": mem_data_width,
-                                    "LINE_WIDTH": line_width,
-                                    "L1_DATA_SET_COUNT": l1_data_set_count,
-                                    "L1_INSTR_SET_COUNT": l1_instr_set_count,
-                                    "L2_SET_COUNT": l2_set_count,
-                                })
+                                cases.append(
+                                    {
+                                        "ADDR_WIDTH": addr_width,
+                                        "DATA_WIDTH": data_width,
+                                        "MEM_DATA_WIDTH": mem_data_width,
+                                        "LINE_WIDTH": line_width,
+                                        "L1_DATA_SET_COUNT": l1_data_set_count,
+                                        "L1_INSTR_SET_COUNT": l1_instr_set_count,
+                                        "L2_SET_COUNT": l2_set_count,
+                                    }
+                                )
     return cases
 
 

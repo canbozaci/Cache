@@ -2,7 +2,9 @@
 
 This repository does not contain foundry, compiler, or project-specific SRAM cells.
 
-The cache RTL provides stable cache-facing memory wrapper modules. By default, those wrappers build generic synthesizable SystemVerilog memory models. For ASIC integration, a project can enable external SRAM adapter modules with preprocessor defines.
+The cache RTL provides stable cache-facing memory wrapper modules. By default, those wrappers build
+generic synthesizable SystemVerilog memory models. For ASIC integration, a project can enable
+external SRAM adapter modules with preprocessor defines.
 
 ## Integration Model
 
@@ -23,9 +25,12 @@ When `SRAM_MACRO_ENABLE` is set, all role-specific adapter defines must also be 
 +define+CACHE_L2_TAG_VALID_ARRAY_MACRO=<external_l2_tag_valid_adapter_module>
 ```
 
-These defines must name external adapter modules supplied by the integrating project. They should not normally name raw compiler SRAM cells directly, because real SRAM macro pins, depth, width, byte-write controls, and collision behavior are compiler-specific.
+These defines must name external adapter modules supplied by the integrating project. They should
+not normally name raw compiler SRAM cells directly, because real SRAM macro pins, depth, width,
+byte-write controls, and collision behavior are compiler-specific.
 
-The adapter module is responsible for instantiating the real SRAM macro cell or another implementation outside this repository.
+The adapter module is responsible for instantiating the real SRAM macro cell or another
+implementation outside this repository.
 
 ## Wrapper Roles
 
@@ -40,7 +45,9 @@ The adapter module is responsible for instantiating the real SRAM macro cell or 
 
 ## Adapter Interface Contract
 
-External adapter modules must support the same parameters and ports as the cache wrapper role they replace. The parameters allow the generic cache to elaborate consistently, but the adapter may check that the selected cache configuration matches a fixed SRAM macro size.
+External adapter modules must support the same parameters and ports as the cache wrapper role they
+replace. The parameters allow the generic cache to elaborate consistently, but the adapter may check
+that the selected cache configuration matches a fixed SRAM macro size.
 
 For example, an adapter for `CACHE_L1_DATA_MEMORY_ARRAY_MACRO` must provide:
 
@@ -60,9 +67,12 @@ module project_l1_memory_array_adapter #(
 );
 ```
 
-The adapter can instantiate a fixed macro such as a 64-deep by 128-bit SRAM internally, but that macro and any foundry collateral must live outside this repository.
+The adapter can instantiate a fixed macro such as a 64-deep by 128-bit SRAM internally, but that
+macro and any foundry collateral must live outside this repository.
 
-The instruction and data L1 memories can map to different fixed-depth cells. Use `L1_DATA_SET_COUNT` and `L1_INSTR_SET_COUNT` to describe different logical depths at the cache top. If those parameters remain unset, both inherit `L1_SET_COUNT` for backward-compatible default geometry.
+The instruction and data L1 memories can map to different fixed-depth cells. Use `L1_DATA_SET_COUNT`
+and `L1_INSTR_SET_COUNT` to describe different logical depths at the cache top. If those parameters
+remain unset, both inherit `L1_SET_COUNT` for backward-compatible default geometry.
 
 ## Required Behavior
 
@@ -73,11 +83,16 @@ The current cache wrappers assume:
 - byte-write enables for cache line data arrays;
 - no asynchronous read path;
 - no SRAM array reset requirement for line data memories;
-- tag/valid memories must return invalid entries after reset before normal cache traffic is accepted;
+- tag/valid memories must return invalid entries after reset before normal cache traffic is
+  accepted;
 - address-selective invalidate clears a matching valid bit;
-- L2 same-address cross-port read/write and write/write collision behavior is integration-defined and must not be relied on by software.
+- L2 same-address cross-port read/write and write/write collision behavior is integration-defined
+  and must not be relied on by software.
 
-ASIC SRAMs usually do not reset stored rows. Therefore, a tag/valid macro adapter must provide reset-clean valid behavior. It can do this by keeping valid bits in resettable flops, by using a reset scrub sequence, or by another project-specific mechanism that prevents stale valid entries after reset.
+ASIC SRAMs usually do not reset stored rows. Therefore, a tag/valid macro adapter must provide
+reset-clean valid behavior. It can do this by keeping valid bits in resettable flops, by using a
+reset scrub sequence, or by another project-specific mechanism that prevents stale valid entries
+after reset.
 
 ## Unsupported In This Repository
 

@@ -19,13 +19,40 @@ run_case "mem_data_width_64" -GMEM_DATA_WIDTH=64
 run_case "line_width_256" -GLINE_WIDTH=256
 run_case "set_counts" -GL1_SET_COUNT=32 -GL2_SET_COUNT=128
 run_case "small_set_counts" -GL1_SET_COUNT=16 -GL2_SET_COUNT=64
-run_case "split_l1_set_counts" -GL1_DATA_SET_COUNT=32 -GL1_INSTR_SET_COUNT=64 -GL2_SET_COUNT=128
-run_case "split_l1_set_counts_alt" -GL1_DATA_SET_COUNT=64 -GL1_INSTR_SET_COUNT=32 -GL2_SET_COUNT=128
+run_case "split_l1_set_counts" \
+  -GL1_DATA_SET_COUNT=32 \
+  -GL1_INSTR_SET_COUNT=64 \
+  -GL2_SET_COUNT=128
+run_case "split_l1_set_counts_alt" \
+  -GL1_DATA_SET_COUNT=64 \
+  -GL1_INSTR_SET_COUNT=32 \
+  -GL2_SET_COUNT=128
 run_case "data_width_128_line_width_256" -GDATA_WIDTH=128 -GLINE_WIDTH=256
 run_case "addr_width_20_data_width_32" -GADDR_WIDTH=20 -GDATA_WIDTH=32
 run_case "mem_data_width_64_line_width_256" -GMEM_DATA_WIDTH=64 -GLINE_WIDTH=256
-run_case "addr_width_20_mem_data_width_64_line_width_256" -GADDR_WIDTH=20 -GMEM_DATA_WIDTH=64 -GLINE_WIDTH=256
-run_case "data_width_32_mem_data_width_64_line_width_256" -GDATA_WIDTH=32 -GMEM_DATA_WIDTH=64 -GLINE_WIDTH=256
-run_case "data_width_128_mem_data_width_64_line_width_256" -GDATA_WIDTH=128 -GMEM_DATA_WIDTH=64 -GLINE_WIDTH=256
-run_case "geometry_data_width_32_mem_data_width_64_line_width_256" -GADDR_WIDTH=20 -GDATA_WIDTH=32 -GMEM_DATA_WIDTH=64 -GLINE_WIDTH=256 -GL1_DATA_SET_COUNT=32 -GL1_INSTR_SET_COUNT=64 -GL2_SET_COUNT=128
-run_case "geometry_data_width_128_mem_data_width_64_line_width_256" -GDATA_WIDTH=128 -GMEM_DATA_WIDTH=64 -GLINE_WIDTH=256 -GL1_SET_COUNT=32 -GL2_SET_COUNT=128
+run_case "addr_width_20_mem_data_width_64_line_width_256" \
+  -GADDR_WIDTH=20 \
+  -GMEM_DATA_WIDTH=64 \
+  -GLINE_WIDTH=256
+run_case "data_width_32_mem_data_width_64_line_width_256" \
+  -GDATA_WIDTH=32 \
+  -GMEM_DATA_WIDTH=64 \
+  -GLINE_WIDTH=256
+run_case "data_width_128_mem_data_width_64_line_width_256" \
+  -GDATA_WIDTH=128 \
+  -GMEM_DATA_WIDTH=64 \
+  -GLINE_WIDTH=256
+run_case "geometry_data_width_32_mem_data_width_64_line_width_256" \
+  -GADDR_WIDTH=20 \
+  -GDATA_WIDTH=32 \
+  -GMEM_DATA_WIDTH=64 \
+  -GLINE_WIDTH=256 \
+  -GL1_DATA_SET_COUNT=32 \
+  -GL1_INSTR_SET_COUNT=64 \
+  -GL2_SET_COUNT=128
+run_case "geometry_data_width_128_mem_data_width_64_line_width_256" \
+  -GDATA_WIDTH=128 \
+  -GMEM_DATA_WIDTH=64 \
+  -GLINE_WIDTH=256 \
+  -GL1_SET_COUNT=32 \
+  -GL2_SET_COUNT=128

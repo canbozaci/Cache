@@ -28,10 +28,12 @@ module cache_l1_replacement#(
         if(rst) begin
           lru_holder_s2 <= {SET_COUNT{1'b0}};
         end
-        else if (hit_s1 & (read | write)) begin // If set 1 has hits and can be read or written then lru_holder_s2 should be 0
+        else if (hit_s1 & (read | write)) begin
+            // If set 1 has hits and can be read or written then lru_holder_s2 should be 0
             lru_holder_s2[idx] <= 1'b0;
         end
-        else if(hit_s2 & (read | write)) begin // If set 2 has hits and can be read or written then lru_holder_s2 should be 1
+        else if(hit_s2 & (read | write)) begin
+            // If set 2 has hits and can be read or written then lru_holder_s2 should be 1
             lru_holder_s2[idx] <= 1'b1;
         end
         end
@@ -44,16 +46,19 @@ module cache_l1_replacement#(
           we_s1 = 1'b0;
         end
         else if (write) begin
-          if(hit_s1 & (~write_L2 | write_through)) begin  // if there is write_through look for hit  if there is a hit in set 1 then write into set1
+          if(hit_s1 & (~write_L2 | write_through)) begin
+            // if there is write_through look for hit  if there is a hit in set 1 then write into set1
             we_s1 = 1'b1;
             we_s2 = 1'b0;
           end
-          else if(hit_s2 & (~write_L2 | write_through)) begin // if there is write_through look for hit if there is a hit in set 2 then write into set2
+          else if(hit_s2 & (~write_L2 | write_through)) begin
+            // if there is write_through look for hit if there is a hit in set 2 then write into set2
             we_s2 = 1'b1;
             we_s1 = 1'b0;
           end
           else if(valid_out_s1 & valid_out_s2) begin // if both sets are written (valid bits indicate that)
-            we_s2 = ~lru_holder_s2[idx];  // logical not value of lru holder decide we signal (because it holds lastly used)
+            // logical not value of lru holder decide we signal (because it holds lastly used)
+            we_s2 = ~lru_holder_s2[idx];
             we_s1 = lru_holder_s2[idx];// value of lru holder decide we signal (because it holds lastly used)
           end
           else if(valid_out_s1) begin  // if only set 1 is written than write into set 2

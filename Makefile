@@ -1,6 +1,7 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help all clean compile compile-cache lint smoke scoreboard random-scoreboard block-tests parameter-compile check verify
+.PHONY: help all clean compile compile-cache lint smoke scoreboard
+.PHONY: random-scoreboard block-tests parameter-compile check verify
 
 define RUN_WITH_STATUS
 	@status=0; \
@@ -65,7 +66,8 @@ check:
 	$(call RUN_WITH_STATUS,CHECK,$(MAKE) --no-print-directory compile lint smoke)
 
 verify:
-	$(call RUN_WITH_STATUS,VERIFY,$(MAKE) --no-print-directory check scoreboard random-scoreboard block-tests parameter-compile)
+	$(call RUN_WITH_STATUS,VERIFY,$(MAKE) --no-print-directory check scoreboard \
+		random-scoreboard block-tests parameter-compile)
 
 clean:
 	$(call RUN_WITH_STATUS,CLEAN,$(RM) -r sim/build obj_dir *.vcd *.fst)

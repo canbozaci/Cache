@@ -336,7 +336,12 @@ module cache_scoreboard_tb #(
         apply_data_write(19'h00004, 64'h1122_3344_5566_7788, 8'hff, "aligned 64-bit write at word 1");
         expect_data_read(19'h00004, "read after aligned 64-bit write");
 
-        apply_data_write(19'h00002, 64'haabb_ccdd_eeff_1234, 8'hff, "unaligned 64-bit write crossing three memory beats");
+        apply_data_write(
+            19'h00002,
+            64'haabb_ccdd_eeff_1234,
+            8'hff,
+            "unaligned 64-bit write crossing three memory beats"
+        );
         expect_data_read(19'h00000, "read lower bytes after three-beat write");
         expect_data_read(19'h00008, "read upper bytes after three-beat write");
 
@@ -767,9 +772,17 @@ module cache_scoreboard_tb #(
 
     task initialize_reference_memory;
     begin
-        for (reference_word_index = 0; reference_word_index < REF_WORDS; reference_word_index = reference_word_index + 1) begin
+        for (
+            reference_word_index = 0;
+            reference_word_index < REF_WORDS;
+            reference_word_index = reference_word_index + 1
+        ) begin
             reference_word_value = 32'h1000_0000 ^ reference_word_index;
-            for (reference_byte_index = 0; reference_byte_index < 4; reference_byte_index = reference_byte_index + 1) begin
+            for (
+                reference_byte_index = 0;
+                reference_byte_index < 4;
+                reference_byte_index = reference_byte_index + 1
+            ) begin
                 reference_memory[(reference_word_index * 4) + reference_byte_index] =
                     reference_word_value[reference_byte_index*8 +: 8];
             end

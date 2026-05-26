@@ -75,15 +75,27 @@ module cache_controller #(
 
     // State for Instruction Cache Control
     reg [3:0] state_instr;
-    parameter state_instr_idle                  = 4'd0,  // idle state waiting for read instruction input, if there is a read go into state_instr_read
-              state_instr_read                  = 4'd1,  // read state decides if there is a hit or there is a miss and read L2, if there is a hit go state_data_idle else go state_instr_miss_L2_step0
-              state_instr_miss_L1_step0         = 4'd2,  // read L2 signal will be read on next state, this is delay state, go into state state_instr_miss_L1_step0
-              state_instr_miss_L1_step1         = 4'd3,  // read L2 signal and decides if there is a hit or start main memory transfer, if L1 hit go into state_instr_hit_L2_step0 if not go into state_instr_miss_L2_s
-              state_instr_hit_L2_step0          = 4'd4,  // there is a hit in L2, start writing into L1 instr cache array step0, go into state_instr_hit_L2_step1
-              state_instr_hit_L2_step1          = 4'd5,  // there is a hit in L2, start writing into L1 instr cache array step1, if L1 hit go into state_instr_idle
+    // idle state waiting for read instruction input, if there is a read go into state_instr_read
+    parameter state_instr_idle                  = 4'd0,
+              // read state decides if there is a hit or there is a miss and read L2, if there is a
+              // hit go state_data_idle else go state_instr_miss_L2_step0
+              state_instr_read                  = 4'd1,
+              // read L2 signal will be read on next state, this is delay state, go into state state_instr_miss_L1_step0
+              state_instr_miss_L1_step0         = 4'd2,
+              // read L2 signal and decides if there is a hit or start main memory transfer, if L1
+              // hit go into state_instr_hit_L2_step0 if not go into state_instr_miss_L2_s
+              state_instr_miss_L1_step1         = 4'd3,
+              // there is a hit in L2, start writing into L1 instr cache array step0, go into state_instr_hit_L2_step1
+              state_instr_hit_L2_step0          = 4'd4,
+              // there is a hit in L2, start writing into L1 instr cache array step1, if L1 hit go into state_instr_idle
+              state_instr_hit_L2_step1          = 4'd5,
               state_instr_miss_L2_step0         = 4'd6,  // main memory line fill beat loop
-              state_instr_miss_L2_done_step0    = 4'd10, // main memory transfer is done, start writing into L1 instr cache array step0, go into state_instr_miss_L2_done_step1
-              state_instr_miss_L2_done_step1    = 4'd11; // main memory transfer is done, start writing into L1 instr cache array step1, if hit go into state_instr_idle
+              // main memory transfer is done, start writing into L1 instr cache array step0, go
+              // into state_instr_miss_L2_done_step1
+              state_instr_miss_L2_done_step0    = 4'd10,
+              // main memory transfer is done, start writing into L1 instr cache array step1, if hit
+              // go into state_instr_idle
+              state_instr_miss_L2_done_step1    = 4'd11;
     reg miss_L1_instr;           // indicates that there is a miss in L1_instr (output from FSM)
     reg main_mem_transfer_instr; // indicates that main memory will be used for instruction cache
     reg transfer_instr_step1;    // step 1 for instruction transfer is done
@@ -91,32 +103,62 @@ module cache_controller #(
 
     // State for Data Cache Control & Registers
     reg [4:0] state_data;
-    parameter state_data_idle                   = 5'd0, // idle state looking for read or write instruction, if read go into state_data_read, if write go into state_data_write_step0
-              state_data_read                   = 5'd1, // data read state looking if there is a hit or not if there is a hit go into state_data_idle, if not go into state_data_miss_L1_step0 and look into L2 cache
-              state_data_miss_L1_step0          = 5'd2, // read L2 signal will be read on next state, this is delay state, go into state state_data_miss_L1_step1
-              state_data_miss_L1_step1          = 5'd3, // if there is a hit go into state state_data_hit_L2_step0 if there is not go into state_data_miss_L2_step0
-              state_data_hit_L2_step0           = 5'd4, // there is a hit in L2, start writing into L1 data cache array step0, go into state_data_hit_L2_step1
-              state_data_hit_L2_step1           = 5'd5, // there is a hit in L2, start writing into L1 data cache array step1, if L1 hit go into state_data_idle
-              state_data_miss_L2_step           = 5'd6,  // wait before memory transfer in case instruction is trying to read and do not conflict go into state state_data_miss_L2_step0
+    // idle state looking for read or write instruction, if read go into state_data_read, if write
+    // go into state_data_write_step0
+    parameter state_data_idle                   = 5'd0,
+              // data read state looking if there is a hit or not if there is a hit go into
+              // state_data_idle, if not go into state_data_miss_L1_step0 and look into L2 cache
+              state_data_read                   = 5'd1,
+              // read L2 signal will be read on next state, this is delay state, go into state state_data_miss_L1_step1
+              state_data_miss_L1_step0          = 5'd2,
+              // if there is a hit go into state state_data_hit_L2_step0 if there is not go into
+              // state_data_miss_L2_step0
+              state_data_miss_L1_step1          = 5'd3,
+              // there is a hit in L2, start writing into L1 data cache array step0, go into state_data_hit_L2_step1
+              state_data_hit_L2_step0           = 5'd4,
+              // there is a hit in L2, start writing into L1 data cache array step1, if L1 hit go into state_data_idle
+              state_data_hit_L2_step1           = 5'd5,
+              // wait before memory transfer in case instruction is trying to read and do not
+              // conflict go into state state_data_miss_L2_step0
+              state_data_miss_L2_step           = 5'd6,
               state_data_miss_L2_step0          = 5'd7, // main memory line fill beat loop
-              state_data_miss_L2_done_step0     = 5'd11,  // main memory transfer is done, start writing into L1 data cache array step0, go into state_data_miss_L2_done_step1
-              state_data_miss_L2_done_step1     = 5'd12,  // main memory transfer is done, start writing into L1 data cache array step1, if hit go into state_data_idle
-              state_data_write_step0            = 5'd13,  // state to stabilize reading to decide write on which set go into state_data_write_step1
-              state_data_write_step1            = 5'd14,  // state to decide if written address is read before in L1 if it is not after write to main memory is done it will be read back, enable write signals  go into state_data_writethrough_step0
-              state_data_writethrough_step0     = 5'd15,  // first data cache array transfer step, go into state_data_writethrough_step1
-              state_data_writethrough_step1     = 5'd16,  // second data cache array transfer step, data written into L1 data, go into state_data_writethrough_step2
-              state_data_writethrough_step2     = 5'd17,  // write data into L2 cache from L1 data first 64 bit go inot state_data_writethrough_step3
-              state_data_writethrough_step3     = 5'd18,  // write data into L2 cache from L1 data last 64 bit go into state_data_writethrough_step4
-              state_data_writethrough_step4     = 5'd19,  // read data from L2, go into state state_data_writethrough_step5
-              state_data_writethrough_step5     = 5'd20,  // stabilise read data from L2 if it is not done on step4, go into state_data_writethrough_step6
+              // main memory transfer is done, start writing into L1 data cache array step0, go into
+              // state_data_miss_L2_done_step1
+              state_data_miss_L2_done_step0     = 5'd11,
+              // main memory transfer is done, start writing into L1 data cache array step1, if hit
+              // go into state_data_idle
+              state_data_miss_L2_done_step1     = 5'd12,
+              // state to stabilize reading to decide write on which set go into state_data_write_step1
+              state_data_write_step0            = 5'd13,
+              // state to decide if written address is read before in L1 if it is not after write to
+              // main memory is done it will be read back, enable write signals  go into
+              // state_data_writethrough_step0
+              state_data_write_step1            = 5'd14,
+              // first data cache array transfer step, go into state_data_writethrough_step1
+              state_data_writethrough_step0     = 5'd15,
+              // second data cache array transfer step, data written into L1 data, go into state_data_writethrough_step2
+              state_data_writethrough_step1     = 5'd16,
+              // write data into L2 cache from L1 data first 64 bit go inot state_data_writethrough_step3
+              state_data_writethrough_step2     = 5'd17,
+              // write data into L2 cache from L1 data last 64 bit go into state_data_writethrough_step4
+              state_data_writethrough_step3     = 5'd18,
+              // read data from L2, go into state state_data_writethrough_step5
+              state_data_writethrough_step4     = 5'd19,
+              // stabilise read data from L2 if it is not done on step4, go into state_data_writethrough_step6
+              state_data_writethrough_step5     = 5'd20,
               state_data_writethrough_step6     = 5'd21,  // start writing data and give output signals to main memory
-              state_data_writethrough_SD        = 5'd22,  // transfer upper 32-bit write data when requested byte strobes cross the first memory word
-              state_data_writethrough_done      = 5'd23;  // wait for transfer done if it is done and if there were miss in state state_data_write_step1 then go into state_data_miss_L1_step1 if not then go into state_data_idle
+              // transfer upper 32-bit write data when requested byte strobes cross the first memory word
+              state_data_writethrough_SD        = 5'd22,
+              // wait for transfer done if it is done and if there were miss in state
+              // state_data_write_step1 then go into state_data_miss_L1_step1 if not then go into
+              // state_data_idle
+              state_data_writethrough_done      = 5'd23;
     reg miss_L1_data; // indicates that there is a miss in L1_data (output from FSM)
     reg main_mem_transfer_data; // indicates that main memory will be used for data cache
     reg transfer_data_step1; // step 1 for data transfer is done//
     reg ram_write_start_data; // First write signal for L2 cache from data, for replacement algorithm
-    reg write_through_miss; // write through miss occurs when writing into an address that does not exist in L1 data cache
+    // write through miss occurs when writing into an address that does not exist in L1 data cache
+    reg write_through_miss;
     reg start_write_transfer; // start write transfer
     reg start_write_transfer2; // acknowledge that the next write beat is ready
     // State for Main Memory Transfer (While Reading instruction or data)
@@ -163,17 +205,24 @@ module cache_controller #(
     wire [ADDR_WIDTH-1:0] line_addr_mask;
     wire main_mem_read_beat_ack;
     //
-    assign ram_data = l2_data_block_p1[(ram_addr_l2_data_write[LINE_OFFSET_WIDTH-1:MEM_BYTE_OFFSET_WIDTH] * MEM_DATA_WIDTH) +: MEM_DATA_WIDTH];
-    assign ram_write_addr = MEMORY_BASE_ADDR + {{(32-ADDR_WIDTH){1'b0}}, ram_addr_l2_data_write};  // from specification ram address is being arranged
+    assign ram_data =
+        l2_data_block_p1[
+            (ram_addr_l2_data_write[LINE_OFFSET_WIDTH-1:MEM_BYTE_OFFSET_WIDTH] * MEM_DATA_WIDTH) +:
+            MEM_DATA_WIDTH
+        ];
+    // from specification ram address is being arranged
+    assign ram_write_addr = MEMORY_BASE_ADDR + {{(32-ADDR_WIDTH){1'b0}}, ram_addr_l2_data_write};
+    // decide on which address will be used for ram
     assign ram_read_addr  = transfer_instr == 1 ?
                             (MEMORY_BASE_ADDR + {{(32-ADDR_WIDTH){1'b0}}, ram_addr_L2_instr}) :
-                            (MEMORY_BASE_ADDR + {{(32-ADDR_WIDTH){1'b0}}, ram_addr_l2_data}); // decide on which address will be used for ram
+                            (MEMORY_BASE_ADDR + {{(32-ADDR_WIDTH){1'b0}}, ram_addr_l2_data});
     assign miss = miss_L1_instr | miss_L1_data |
                   (~L1_data_hit & (data_read_request | data_cache_read)) |
                   (~L1_instr_hit & (instr_request | instr_cache_read)); // miss output
+    // L2 address being decided if there is a miss next it will be next idx address
     assign L2_p2_addr = ((L1_instr_hit & L1_miss_next)) == 1'b1 ?
                         (L1_instr_addr[L2_ADDR_WIDTH-1:0] + {{(L2_ADDR_WIDTH-2){1'b0}}, 2'b10}) :
-                        L1_instr_addr[L2_ADDR_WIDTH-1:0]; // L2 address being decided if there is a miss next it will be next idx address
+                        L1_instr_addr[L2_ADDR_WIDTH-1:0];
     assign ram_write_start = ram_write_start_instr | ram_write_start_data;
     assign line_addr_mask = {ADDR_WIDTH{1'b1}} << LINE_OFFSET_WIDTH;
     assign main_mem_read_beat_ack = transfer_data_step1 | transfer_instr_step1;
@@ -194,9 +243,15 @@ module cache_controller #(
         data_write_current_strobe = {MEM_BYTE_COUNT{1'b0}};
         data_write_next_strobe = {MEM_BYTE_COUNT{1'b0}};
         data_write_last_beat_index = 8'b0;
-        for (data_write_strobe_index = 0; data_write_strobe_index < DATA_BYTE_COUNT; data_write_strobe_index = data_write_strobe_index + 1) begin
+        for (
+            data_write_strobe_index = 0;
+            data_write_strobe_index < DATA_BYTE_COUNT;
+            data_write_strobe_index = data_write_strobe_index + 1
+        ) begin
             data_write_byte_index = data_write_strobe_index;
-            data_write_byte_index = data_write_byte_index + (({{(32-ADDR_WIDTH){1'b0}}, L1_data_addr}) % MEM_BYTE_COUNT);
+            data_write_byte_index =
+                data_write_byte_index +
+                (({{(32-ADDR_WIDTH){1'b0}}, L1_data_addr}) % MEM_BYTE_COUNT);
             data_write_beat_candidate = data_write_byte_index / MEM_BYTE_COUNT;
             if (data_write_strobe[data_write_strobe_index]) begin
                 if (data_write_beat_candidate == {24'b0, data_write_beat_index}) begin
@@ -305,8 +360,13 @@ module cache_controller #(
                         instr_cache_read <= 1'b0;
                     end
                     else begin // L1_instr cache'de miss
-                        if(L1_instr_hit & L1_miss_next) begin // Eger ki miss_next ise write_next'yu 1'e cek sonraki adrese yazilsin. (L1_instr_hit eklendi cunku bir turlu jump
-                                                                  // ile o kosul olusturulursa hata olucak normal adresste miss olmasina ragmen yine sonraki adrese yazilacak.)
+                        // Eger ki miss_next ise write_next'yu 1'e cek sonraki adrese yazilsin.
+                        // (L1_instr_hit eklendi cunku bir turlu jump
+                        if(L1_instr_hit & L1_miss_next) begin
+                                                                  // ile o kosul olusturulursa hata
+                                                                  // olucak normal adresste miss
+                                                                  // olmasina ragmen yine sonraki
+                                                                  // adrese yazilacak.)
                             write_next     <= 1'b1;
                         end
                         instr_cache_read <= 1'b1;
@@ -326,8 +386,11 @@ module cache_controller #(
                         instr_write_start <= 1'b1;
                         state_instr      <= state_instr_hit_L2_step0;
                     end
-                    else if(~transfer_data) begin // L2'de de miss, Eger ki Data cache'de de onceden miss varsa ve main memory'yi kullaniyorsa girme bekle.
-                        main_mem_transfer_instr   <= 1'b1; // instruction'dan main memory'ye transfer yapilacagini belirtir.
+                    else if(~transfer_data) begin
+                        // L2'de de miss, Eger ki Data cache'de de onceden miss varsa ve main memory'yi
+                        // kullaniyorsa girme bekle.
+                        // instruction'dan main memory'ye transfer yapilacagini belirtir.
+                        main_mem_transfer_instr   <= 1'b1;
                         L2_write_p2             <= 1'b1; // L2'nin 2.portunun yazma sinyalini ac.
                         instr_fill_beat_index   <= 8'b0;
                         L2_byte_enable_p2       <= MEMORY_BEAT_BYTE_MASK;
@@ -525,7 +588,8 @@ module cache_controller #(
                 if(data_read_request) begin // read request
                     //miss_L1_data                   <= 1'b1;
                     data_cache_read <= 1'b1;
-                    state_data                     <= state_data_read; // eger cpu yavas olcaksa direk state_data_read'e gitmeli
+                    // eger cpu yavas olcaksa direk state_data_read'e gitmeli
+                    state_data                     <= state_data_read;
                 end
                 else if(data_write_request) begin
                     data_cache_read <= 1'b1;
@@ -572,11 +636,14 @@ module cache_controller #(
             end
 
             state_data_miss_L1_step1: begin
-                if(L2_p1_hit & ~write_through_miss) begin // ~write_through miss, yazma yapilmis ve daha once o adres cache'lerde bulunmuyorsa yapilacak bir sey.
+                // ~write_through miss, yazma yapilmis ve daha once o adres cache'lerde bulunmuyorsa yapilacak bir sey.
+                if(L2_p1_hit & ~write_through_miss) begin
                     write_L2      <= 1'b1;
                     state_data      <= state_data_hit_L2_step0;
                 end
-                else if(~transfer_instr & ~((state_instr == state_instr_miss_L1_step1) & ~L2_p2_hit))begin // L2'de de miss var. L1 instr cache main memory'yi kullanmiyorsa ve su anda kullanmiyacaksa buraya gir.
+                else if(~transfer_instr & ~((state_instr == state_instr_miss_L1_step1) & ~L2_p2_hit))begin
+                    // L2'de de miss var. L1 instr cache main memory'yi kullanmiyorsa ve su anda
+                    // kullanmiyacaksa buraya gir.
 
                     L2_write_p1          <= 1'b1;
                     data_fill_beat_index <= 8'b0;
