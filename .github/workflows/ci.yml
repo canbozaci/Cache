@@ -14,6 +14,9 @@ jobs:
 
     env:
       UVM_HOME: ${{ github.workspace }}/uvm-core/src
+      # Must match the version the suite is validated against locally; see the
+      # Build Verilator step for why the packaged one cannot be used.
+      VERILATOR_VERSION: v5.050
 
     steps:
       - name: Checkout
@@ -22,7 +25,40 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y make verilator iverilog ripgrep
+          sudo apt-get install -y make iverilog ripgrep \
+            git help2man perl python3 autoconf g++ flex bison ccache \
+            libgoogle-perftools-dev numactl perl-doc libfl2 libfl-dev \
+            zlib1g zlib1g-dev
+
+      # Verilator is built from source, pinned, rather than taken from apt.
+      #
+      # The distribution package is 5.020, which does not implement `##` cycle
+      # delays in sequence expressions at all. Three checks in this testbench
+      # use them -- the eventually-errors assertion for a line maintenance
+      # command with no address, and two cover bins -- so the whole build fails
+      # to elaborate on the packaged version even though the suite passes
+      # locally. Pinning here makes CI test the same tool the suite is developed
+      # and validated against, rather than a different one.
+      - name: Cache Verilator
+        id: cache-verilator
+        uses: actions/cache@v4
+        with:
+          path: ~/verilator-install
+          key: verilator-${{ env.VERILATOR_VERSION }}-${{ runner.os }}
+
+      - name: Build Verilator
+        if: steps.cache-verilator.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch "$VERILATOR_VERSION" \
+            https://github.com/verilator/verilator.git verilator-src
+          cd verilator-src
+          autoconf
+          ./configure --prefix="$HOME/verilator-install"
+          make -j"$(nproc)"
+          make install
+
+      - name: Put Verilator on PATH
+        run: echo "$HOME/verilator-install/bin" >> "$GITHUB_PATH"
 
       # UVM is not packaged by any distribution, and `make verify` refuses to
       # run without it rather than silently skipping the UVM stages. Pinned to a
@@ -34,12 +70,11 @@ jobs:
             https://github.com/accellera-official/uvm-core.git uvm-core
           test -f "$UVM_HOME/uvm_pkg.sv"
 
-      # Recorded in the log because the suite is developed against Verilator
-      # 5.050, and several things it relies on are version-sensitive: SVA cover
-      # directives under --coverage-user (covergroups are not implemented),
-      # --binary --timing, and the absence of `bind` into a uvm_pkg-importing
-      # module. A failure here is much easier to read with the version in front
-      # of you.
+      # Confirms the pin actually took effect, and leaves the version in the
+      # log. Several things the suite relies on are version-sensitive: `##`
+      # cycle delays in sequences, SVA cover directives under --coverage-user
+      # (covergroups are not implemented at all), --binary --timing, and the
+      # absence of `bind` into a uvm_pkg-importing module.
       - name: Tool versions
         run: |
           verilator --version

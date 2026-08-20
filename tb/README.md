@@ -9,6 +9,15 @@ testbenches that previously lived in this directory.
 - Accellera `uvm-core` sources, with `UVM_HOME` pointing at their `src/`
   directory. Compiled with `+define+UVM_NO_DPI`.
 
+**Distribution packages are generally too old.** Debian and Ubuntu currently
+ship 5.020, which does not implement `##` cycle delays in sequence expressions
+at all. Three checks here use them -- `a_line_maint_needs_addr` in
+`sva/cache_sva.sv`, and the `c_req_back_to_back` and
+`c_maint_retires_after_traffic` bins in `cov/cache_cov.sv` -- so on 5.020 the
+build fails to elaborate rather than degrading gracefully. CI therefore builds
+Verilator from source pinned to the version above; see
+`.github/workflows/ci.yml`.
+
 ## Two environments
 
 `tb/` holds the cache-level environment: the `cache` top is the DUT, and the
