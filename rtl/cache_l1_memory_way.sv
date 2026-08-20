@@ -11,7 +11,7 @@ module cache_l1_memory_way#(
     )
     (
     input clk,
-    input rst,
+    input rst_n,
     input [LINE_WIDTH-1:0] block_write,
     input [TAG_WIDTH + INDEX_WIDTH-1:0] tag_and_idx,
     input we,
@@ -44,7 +44,7 @@ module cache_l1_memory_way#(
         .INSTR_MEMORY(INSTR_MEMORY)
     ) cache_l1_memory_tag_valid_array_inst(
         .clk(clk),
-        .rst(rst),
+        .rst_n(rst_n),
         .we(we),
         .invalidate(invalidate),
         .addr(tag_and_idx[INDEX_WIDTH-1:0]),

@@ -8,7 +8,7 @@ module cache_l2_replacement#(
     )
     (
     input clk,
-    input rst,
+    input rst_n,
     input read_p1,
     input read_p2,
     input write_p1,
@@ -65,10 +65,16 @@ module cache_l2_replacement#(
     end else begin
       if(write_p1) begin
         start_write_p1 = 1'b1;
-        if(hit_s1_p1 & write_through) begin
+        // Residency wins over the replacement policy. Qualifying these two
+        // checks with write_through, as they used to be, skipped them on a
+        // fill: refilling a line the set already held picked an LRU victim and
+        // left the same tag valid in both ways. Way 0 answers a two-way hit, so
+        // the way-1 copy went unreachable and every later store into it was
+        // lost. Same defect as in cache_l1_replacement.sv.
+        if(hit_s1_p1) begin
           start_way_s2_p1 = 1'b0;
         end
-        else if (hit_s2_p1 & write_through) begin
+        else if (hit_s2_p1) begin
           start_way_s2_p1 = 1'b1;
         end
         else if(valid_out_s1_p1 & valid_out_s2_p1) begin
@@ -84,7 +90,15 @@ module cache_l2_replacement#(
 
       if(write_p2) begin
         start_write_p2 = 1'b1;
-        if(valid_out_s1_p2 & valid_out_s2_p2) begin
+        // The instruction port had no residency check at all, so an instruction
+        // refill of an already-resident line duplicated it unconditionally.
+        if(hit_s1_p2) begin
+          start_way_s2_p2 = 1'b0;
+        end
+        else if (hit_s2_p2) begin
+          start_way_s2_p2 = 1'b1;
+        end
+        else if(valid_out_s1_p2 & valid_out_s2_p2) begin
           start_way_s2_p2 = ~lru_holder_s2[idx_p2];
         end
         else if(valid_out_s1_p2) begin
@@ -98,7 +112,7 @@ module cache_l2_replacement#(
   end
 
   always @(posedge clk) begin
-    if(rst) begin
+    if (!rst_n) begin
       lru_holder_s2 <= {SET_COUNT{1'b0}};
       fill_active_p1 <= 1'b0;
       fill_active_p2 <= 1'b0;
@@ -146,7 +160,7 @@ module cache_l2_replacement#(
     we_s1_p1 = 1'b0;
     we_s2_p2 = 1'b0;
     we_s1_p2 = 1'b0;
-    if(rst) begin
+    if (!rst_n) begin
       we_s2_p1 = 1'b0;
       we_s1_p1 = 1'b0;
       we_s2_p2 = 1'b0;

@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 Can Bozaci
+#
+# Seeded random geometry sweep for the UVM testbench.
+#
+# The seed is printed and overridable so a failure found here is reproducible:
+# RANDOM_SEED=<seed> re-runs the identical set of configurations.
 
 import os
 import random
 import subprocess
+import sys
 import time
 
 
@@ -13,6 +19,13 @@ SEED = int(os.environ.get("RANDOM_SEED", str(int(time.time()))))
 
 
 def legal_cases():
+    """Every geometry the IP currently claims behavioural support for.
+
+    The exclusions are the documented parameter contract, not arbitrary
+    filtering: a line must be a whole number of memory beats, a line cannot be
+    narrower than a CPU access, and 128-bit accesses are only supported against
+    256-bit lines.
+    """
     cases = []
     for addr_width in [19, 20, 21]:
         for data_width in [32, 64, 128]:
@@ -39,36 +52,24 @@ def legal_cases():
     return cases
 
 
-def case_args(case):
-    args = []
-    for key, value in case.items():
-        args.extend(["-P", f"cache_scoreboard_tb.{key}={value}"])
-    return args
+def case_defines(case):
+    return [f"+define+CACHE_{key}={value}" for key, value in case.items()]
 
 
 def main():
     random.seed(SEED)
     cases = random.sample(legal_cases(), CASE_COUNT)
-    print(f"RANDOM SCOREBOARD SEED: {SEED}", flush=True)
-    print(f"RANDOM SCOREBOARD CASES: {CASE_COUNT}", flush=True)
-    os.makedirs("sim/build", exist_ok=True)
+    print(f"RANDOM UVM SEED: {SEED}", flush=True)
+    print(f"RANDOM UVM CASES: {CASE_COUNT}", flush=True)
 
     for index, case in enumerate(cases):
         name = f"random_{index}"
-        output_path = f"sim/build/cache_scoreboard_{name}_tb.vvp"
-        print(f"SCOREBOARD: {name} {case}", flush=True)
-        compile_cmd = [
-            "iverilog",
-            "-g2012",
-            "-o",
-            output_path,
-            *case_args(case),
-            "-f",
-            "filelists/scoreboard_tb.f",
-        ]
-        subprocess.run(compile_cmd, check=True)
-        subprocess.run(["vvp", output_path], check=True)
+        print(f"UVM RANDOM: {name} {case}", flush=True)
+        subprocess.run(
+            ["./scripts/run_uvm_tb.sh", name, *case_defines(case)],
+            check=True,
+        )
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

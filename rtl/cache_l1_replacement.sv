@@ -8,14 +8,21 @@ module cache_l1_replacement#(
       )
       (
       input clk,
-      input rst,
+      input rst_n,
       input read,
       input write,
       input [INDEX_WIDTH -1 :0] idx,
       input hit_s1, // set 1 hit input
       input hit_s2, // set 2 hit input
+      // Both of these became unused when the residency check below stopped
+      // being conditional. They are kept on the port list because they are
+      // real signals of cache_l1_data's interface, and removing them here
+      // would push the same removal up through cache_l1_data into cache.sv
+      // for no gain. Retained so the two levels keep matching port lists.
+      /* verilator lint_off UNUSEDSIGNAL */
       input write_L2, // L2 write signal
-      input write_through, // write will be done as write throug
+      input write_through, // write will be done as write through
+      /* verilator lint_on UNUSEDSIGNAL */
       input valid_out_s1,
       input valid_out_s2,
       output reg we_s1, // set1 write signal
@@ -25,7 +32,7 @@ module cache_l1_replacement#(
       reg [SET_COUNT-1:0] lru_holder_s2; // holding the LRU (either LRU or not) for each block on set2
   // if lru_holder_s2 is 0 means set 1 was last read, if it is 1 means set 2 was last read
       always @(posedge clk) begin
-        if(rst) begin
+        if (!rst_n) begin
           lru_holder_s2 <= {SET_COUNT{1'b0}};
         end
         else if (hit_s1 & (read | write)) begin // If set 1 has hits and can be read or written then lru_holder_s2 should be 0
@@ -39,16 +46,25 @@ module cache_l1_replacement#(
       always@ (*) begin
         we_s2 = 1'b0;
         we_s1 = 1'b0;
-        if(rst) begin
+        if (!rst_n) begin
           we_s2 = 1'b0;
           we_s1 = 1'b0;
         end
         else if (write) begin
-          if(hit_s1 & (~write_L2 | write_through)) begin  // if there is write_through look for hit  if there is a hit in set 1 then write into set1
+          // A line already resident in a way must be rewritten in that way,
+          // whatever kind of write this is. The hit checks used to be qualified
+          // by (~write_L2 | write_through), which excluded exactly the fill
+          // case: a fill of a line the set already held fell through to the LRU
+          // victim below and installed a second copy in the other way. Both
+          // copies then read as valid with the same tag, and since a two-way
+          // hit resolves to way 0 (cache_set_output_select is asserted only for
+          // hit_s2 & ~hit_s1), the way-1 copy became unreachable. Stores that
+          // landed in it were lost silently until the set was evicted.
+          if(hit_s1) begin  // line already lives in set 1, so rewrite it there
             we_s1 = 1'b1;
             we_s2 = 1'b0;
           end
-          else if(hit_s2 & (~write_L2 | write_through)) begin // if there is write_through look for hit if there is a hit in set 2 then write into set2
+          else if(hit_s2) begin // line already lives in set 2, so rewrite it there
             we_s2 = 1'b1;
             we_s1 = 1'b0;
           end

@@ -28,24 +28,26 @@ This repository contains the generic cache IP only. CPU-side protocol adaptation
 - Synthesizable RTL lives in `rtl/` and uses `.sv` extensions.
 - The reusable architecture-neutral cache top is `cache` in `rtl/`.
 - CPU-specific compatibility glue has been moved to sibling adaptor repositories.
-- Testbench-only models and directed tests live in `tb/`.
+- The UVM verification environment lives in `tb/`, described in `tb/README.md`.
 - Reproducible build inputs live in `filelists/`.
 - Project scripts live in `scripts/`.
+- Verification requires a UVM-capable Verilator (>= 5.046) and the Accellera
+  `uvm-core` sources, with `UVM_HOME` set to their `src/` directory.
 - Current baseline command:
 
 ```sh
 make check
 ```
 
-This runs RTL elaboration, RTL style/lint checks, and the top-level directed smoke simulation.
+This runs RTL elaboration, RTL style/lint checks, and the UVM regression test in its default configuration.
 
-For the stronger self-checking cache scoreboard:
+For the full directed configuration matrix:
 
 ```sh
-make scoreboard
+make uvm-scoreboard
 ```
 
-`make verify` runs the baseline check, directed scoreboard configurations, seeded random scoreboard configurations, block tests, and a compile-only parameter sweep. It is the preferred regression command before RTL changes are considered done.
+`make verify` runs the baseline check, the directed configuration matrix, seeded random configurations, block-level tests, and a compile-only parameter sweep. It is the preferred regression command before RTL changes are considered done.
 
 To elaborate only the reusable cache top:
 
@@ -57,7 +59,7 @@ make compile-cache
 
 ```text
 rtl/        Synthesizable cache RTL: top, arrays, replacement, controller, and datapath helpers
-tb/         Testbenches and native memory model
+tb/         UVM verification environments: cache level, and block level in tb/block/
 filelists/  Tool source lists
 scripts/    Compile, lint, style, and simulation scripts
 docs/       Integration and gap-analysis notes
@@ -66,8 +68,6 @@ docs/       Integration and gap-analysis notes
 ## ASIC-Oriented Cleanup Notes
 
 The cache array models no longer contain FPGA `ram_style` attributes or OpenRAM/BRAM-specific markers in synthesizable RTL. The default array models are generic inferred SystemVerilog memories. ASIC SRAM macro integration is handled through external adapter hooks documented in `docs/SRAM_INTEGRATION.md`; this repository does not include foundry SRAM cells.
-
-The top-level smoke test uses a small native 32-bit memory model instead of the historical demo memory, peripheral, and program image files.
 
 The reusable cache boundary accepts generic request signals and byte write strobes. ISA-specific load/store interpretation belongs outside this repository in a CPU-side adaptor.
 

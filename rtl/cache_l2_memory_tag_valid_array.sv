@@ -11,7 +11,7 @@ module cache_l2_memory_tag_valid_array#(
   )
   (
   input clk,   // clock input
-  input rst,
+  input rst_n,
   input we_p1, // port 1 write enable signal (data cache)
   input we_p2, // port 2 write enable signal (instruction cache)
   input invalidate,
@@ -37,7 +37,7 @@ module cache_l2_memory_tag_valid_array#(
     .DATA_WIDTH(DATA_WIDTH)
   ) cache_l2_tag_valid_array_macro_inst (
     .clk(clk),
-    .rst(rst),
+    .rst_n(rst_n),
     .we_p1(we_p1),
     .we_p2(we_p2),
     .invalidate(invalidate),
@@ -53,9 +53,10 @@ module cache_l2_memory_tag_valid_array#(
 `else
   // Core Memory
   reg [DATA_WIDTH-1:0] ram_block [(2**ADDR_WIDTH)-1:0];
+  reg [DATA_WIDTH-1:0] inv_word;
   integer mem_index;
   always @ (posedge clk) begin
-    if (rst) begin
+    if (!rst_n) begin
       for (mem_index = 0; mem_index < (2**ADDR_WIDTH); mem_index = mem_index + 1) begin
         /* verilator lint_off BLKSEQ */
         ram_block[mem_index] = {DATA_WIDTH{1'b0}};
@@ -64,9 +65,20 @@ module cache_l2_memory_tag_valid_array#(
       read_data_p1 <= {DATA_WIDTH{1'b0}};
       read_data_p2 <= {DATA_WIDTH{1'b0}};
     end else begin
-      if (invalidate && ram_block[invalidate_addr][DATA_WIDTH-1] &&
-          (ram_block[invalidate_addr][DATA_WIDTH-2:0] == invalidate_tag)) begin
-        ram_block[invalidate_addr][DATA_WIDTH-1] <= 1'b0;
+      // Read the word out before examining it, and write it back whole. A
+      // chained select -- ram_block[invalidate_addr][DATA_WIDTH-1] -- resolves
+      // its width from the module's *default* DATA_WIDTH rather than the
+      // overridden one, so on any geometry where the tag width differs from the
+      // default it reads and clears the wrong bit. The same defect in the L1
+      // array made line invalidate silently do nothing at L1_SET_COUNT=32.
+      // Blocking on purpose: a local temporary read and used within this
+      // same evaluation, not state. Same idiom as the reset loop above.
+      /* verilator lint_off BLKSEQ */
+      inv_word = ram_block[invalidate_addr];
+      /* verilator lint_on BLKSEQ */
+      if (invalidate && inv_word[DATA_WIDTH-1] &&
+          (inv_word[DATA_WIDTH-2:0] == invalidate_tag)) begin
+        ram_block[invalidate_addr] <= {1'b0, inv_word[DATA_WIDTH-2:0]};
       end
       if(we_p1) begin
         ram_block[addr_p1][DATA_WIDTH-1:0] <= write_data_p1[DATA_WIDTH-1:0];

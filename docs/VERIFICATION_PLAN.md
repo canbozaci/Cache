@@ -1,16 +1,37 @@
 # Cache Verification Plan
 
+## Tooling
+
+Verification uses two UVM environments under `tb/`, described in
+`tb/README.md`: the cache-level environment, and a block-level environment in
+`tb/block/` for the leaf modules.
+It requires a UVM-capable Verilator (>= 5.046) and the Accellera `uvm-core`
+sources, with `UVM_HOME` pointing at their `src/` directory.
+
 ## Baseline Gate
 
 `make check` is the current clean baseline. It runs:
 
 - RTL elaboration of the `cache` top.
 - RTL style checks and Verilator lint.
-- Directed smoke simulation with the native memory model.
+- The UVM regression test in its default configuration.
 
 ## Block Tests
 
-`make block-tests` builds and runs `tb/cache_block_tb.sv`.
+`make block-tests` runs the block-level UVM environment in `tb/block/`, which
+instantiates the leaf modules directly — there is no cache instance in it.
+
+It has its own top, package and test (`cache_block_test`), separate from the
+cache-level environment, because the DUTs are different. Geometry is fixed
+rather than swept: these tests target internal behaviour that the cache-top
+configuration matrix cannot reach, and sweeping widths here would add runtime
+without adding coverage.
+
+The agent has a driver but no monitor. These DUTs have no handshake and several
+are purely combinational, so the sampling instant is defined entirely by the
+stimulus; an independent monitor could only duplicate the driver's timing. The
+comparison still lives in the scoreboard, so the component that drives is not
+the component that decides pass or fail.
 
 The block tests check:
 
@@ -24,9 +45,21 @@ The block tests check:
 
 ## Scoreboard Regression
 
-`make scoreboard` builds and runs `tb/cache_scoreboard_tb.sv` across multiple configurations.
+`make uvm-scoreboard` runs the UVM regression test across the configuration
+matrix below. Geometry cases rebuild because they change port widths; the
+memory-responder cases are runtime plusargs and reuse the default build.
 
-The scoreboard keeps an independent byte-addressed reference memory initialized to match `tb/cache_memory_model.sv`. It checks:
+The environment keeps two independent copies of a byte-addressed reference
+memory: one is the scoreboard's oracle, updated from observed CPU writes, and
+one is the memory responder's backing store, updated from observed memory
+writes. Both start from the same generated pattern, so a write-through defect
+appears as divergence between them on the next access that reaches memory.
+
+A run that observes no CPU-side traffic fails rather than passing silently, and
+each case is gated on an explicit pass banner rather than the simulator exit
+status, which UVM always leaves at zero.
+
+It checks:
 
 - Cold data reads from external memory.
 - L1 hit reads after a fill.
@@ -39,6 +72,8 @@ The scoreboard keeps an independent byte-addressed reference memory initialized 
 - Fixed and variable native memory response latency.
 - Native memory line-fill burst metadata.
 - Native memory write-through burst metadata.
+- Write-through data actually reaching main memory, checked by invalidating the
+  cache and re-reading so the value is served from memory rather than the array.
 - Runtime global and address-selective line maintenance handshakes.
 - Address-selective line invalidate forcing a refill only for the targeted line.
 - Address-selective line flush as a write-through no-op.
@@ -47,9 +82,29 @@ The scoreboard keeps an independent byte-addressed reference memory initialized 
 - Reset during an active transaction and repeated reset recovery.
 - The documented unsupported I/D coherency contract: data-side writes do not update an already-filled instruction L1 line until maintenance invalidates the line.
 
-`make random-scoreboard` generates six legal parameter combinations from a time-based seed and runs the scoreboard on them. The runner prints the seed and accepts `RANDOM_SEED=<seed>` and `RANDOM_CASE_COUNT=<count>` overrides for reproducing failures.
+`make uvm-random` generates six legal parameter combinations from a time-based seed and runs the regression on them. The runner prints the seed and accepts `RANDOM_SEED=<seed>` and `RANDOM_CASE_COUNT=<count>` overrides for reproducing failures.
 
-`make verify` runs `make check`, `make scoreboard`, `make random-scoreboard`, `make block-tests`, and `make parameter-compile`.
+`make verify` runs `make check`, `make uvm-scoreboard`, `make uvm-random`,
+`make uvm-traffic`, `make block-tests`, and `make parameter-compile`. It is the
+gate CI enforces on every push and pull request.
+
+Three always-on checkers run inside every one of those cases, alongside the
+scoreboard:
+
+- `tb/sva/cache_sva.sv` -- protocol assertions on the interface pins, each one
+  stated in `docs/TIMING_CONTRACT.md`.
+- `tb/sva/cache_dup_tag_check.sv` -- no set may hold the same tag valid in both
+  ways. Structural, so it reaches into the DUT; a duplicate has no expression at
+  the interface, which is why D5 went unnoticed until a read happened to land on
+  the shadowed copy.
+- `tb/sva/cache_wt_l2_check.sv` -- a store that updates an L1 way under
+  write-through must also update L2's copy of the same line. Validated by fault
+  injection rather than by never having failed: gating write-through out of L2's
+  write enable makes it fire within 9us.
+
+The first two fire at the cycle the fault is created rather than whenever a read
+later exposes it, which is the difference between a defect that is debuggable
+and one that is a mystery hundreds of accesses later.
 
 Current scoreboard configurations:
 

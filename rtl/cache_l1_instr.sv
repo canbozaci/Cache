@@ -13,7 +13,7 @@ module cache_l1_instr #(
     parameter BYTE_OFFSET_WIDTH = 2
 ) (
     input clk,
-    input rst,
+    input rst_n,
     input read,
     input fill,
     input invalidate_line,
@@ -53,7 +53,7 @@ module cache_l1_instr #(
     assign full_line_byte_enable = {(LINE_WIDTH/8){1'b1}};
     assign we_set1 = fill & we_s1;
     assign we_set2 = fill & we_s2;
-    assign hit = read & (hit_s1 | hit_s2) & ~rst;
+    assign hit = read & (hit_s1 | hit_s2) & rst_n;
     assign cache_set_output_select = read & hit_s2 & ~hit_s1;
 
     cache_l1_memory_way #(
@@ -64,7 +64,7 @@ module cache_l1_instr #(
         .INSTR_MEMORY(1)
     ) cache_set_0 (
         .clk(clk),
-        .rst(rst),
+        .rst_n(rst_n),
         .block_write(data_in_write),
         .tag_and_idx({tag_input, idx_input}),
         .we(we_set1),
@@ -84,7 +84,7 @@ module cache_l1_instr #(
         .INSTR_MEMORY(1)
     ) cache_set_1 (
         .clk(clk),
-        .rst(rst),
+        .rst_n(rst_n),
         .block_write(data_in_write),
         .tag_and_idx({tag_input, idx_input}),
         .we(we_set2),
@@ -119,7 +119,7 @@ module cache_l1_instr #(
         .SET_COUNT(SET_COUNT)
     ) cache_replacement_inst (
         .clk(clk),
-        .rst(rst),
+        .rst_n(rst_n),
         .read(read),
         .write(fill),
         .idx(idx_input),

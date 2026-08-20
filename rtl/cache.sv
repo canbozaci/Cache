@@ -17,7 +17,7 @@ module cache #(
     parameter MEMORY_BASE_ADDR = 32'h2000_0000
 ) (
     input clk,
-    input rst,
+    input rst_n,
 
     input instr_req_valid,
     input [ADDR_WIDTH-1:0] instr_req_addr,
@@ -80,12 +80,18 @@ module cache #(
     localparam L2_TAG_WIDTH = L2_ADDR_WIDTH - L2_INDEX_WIDTH;
 
     wire write_through;
-    wire cache_array_rst;
+    wire cache_array_rst_n;
     reg maint_done_q;
     reg maint_error_q;
     reg maint_invalidate_pulse;
     reg maint_invalidate_line_pulse;
+    // Byte address as presented by the CPU. Every consumer slices it to a line
+    // or tag/index address, so the low LINE_OFFSET_WIDTH bits are deliberately
+    // dropped: maintenance operates on whole lines, and a maintenance command
+    // naming a byte within a line means the same thing as one naming the line.
+    /* verilator lint_off UNUSEDSIGNAL */
     reg [ADDR_WIDTH-1:0] maint_addr_q;
+    /* verilator lint_on UNUSEDSIGNAL */
     reg maint_pending;
     reg maint_pending_error;
     reg maint_pending_invalidate;
@@ -95,11 +101,19 @@ module cache #(
     wire [LINE_WIDTH-1:0] l2_write_block_p2;
     wire [LINE_WIDTH-1:0] l2_read_block_p1;
     wire [LINE_WIDTH-1:0] l2_read_block_p2;
-    wire [L2_ADDR_WIDTH-1:0] l2_p2_addr;
+    // BYTE address; sliced to a line address at the L2 port. The low
+    // LINE_OFFSET_WIDTH bits are unused for the same reason as maint_addr_q
+    // above -- L2 is addressed by line -- and are kept in the declaration so
+    // this stays a plain byte address everywhere else it is handled.
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire [ADDR_WIDTH-1:0]    l2_p2_addr;
+    /* verilator lint_on UNUSEDSIGNAL */
     wire [L2_ADDR_WIDTH-1:0] l2_maint_addr;
     wire [L1_DATA_TAG_WIDTH+L1_DATA_INDEX_WIDTH-1:0] l1_data_maint_tag_and_idx;
     wire [L1_INSTR_TAG_WIDTH+L1_INSTR_INDEX_WIDTH-1:0] l1_instr_maint_tag_and_idx;
     wire [LINE_BYTE_COUNT-1:0] l2_byte_enable_p1;
+    wire l2_p1_write_source_valid;
+    wire [LINE_BYTE_COUNT-1:0] l2_byte_enable_p1_gated;
     wire [LINE_BYTE_COUNT-1:0] l2_byte_enable_p2;
     wire l2_read_p1;
     wire l2_read_p2;
@@ -168,6 +182,40 @@ module cache #(
     assign mem_rsp_ready = 1'b1;
 
     assign l2_write_block_p1 = (mem_rsp_valid_q == 1'b1) ? {LINE_MEM_BEAT_COUNT{mem_rsp_rdata_q}} : l1_data_block;
+
+    // Is the source the L2 port-1 write mux is currently selecting actually
+    // valid this cycle?
+    //
+    // The mux above chooses the memory beat when mem_rsp_valid_q is high and the
+    // L1 line otherwise, so the write enable has to agree with it or L2 is
+    // written from a source that is not presenting anything. It did not: the
+    // enable below used to be qualified by (write_through | mem_rsp_valid_q),
+    // and write_through stays asserted for the whole write-through pipeline
+    // including the line fill that follows a write miss. On every cycle of that
+    // fill where mem_rsp_valid_q was low, L2 was written with l1_data_block —
+    // which is not the line being filled — over the beat that had just arrived.
+    // The line ended up valid, tagged and holding zeros, so it answered later
+    // misses with zeros and never refetched.
+    //
+    // The L1 line is only the intended source during the controller's
+    // write-through L2 write, which is the one window that enables the whole
+    // line at once; a fill enables one memory beat's worth at a time.
+    assign l2_p1_write_source_valid = mem_rsp_valid_q | (&l2_byte_enable_p1);
+
+    // The correction is applied to the byte enables rather than to write_p1,
+    // and that distinction is load-bearing. cache_l2_replacement uses write_p1
+    // for two jobs: producing the per-way write enable, and *arming* the burst
+    // — on ram_write_start it latches fill_active_p1 and the way that the whole
+    // fill will use. Gating write_p1 therefore does not just suppress a bad
+    // write, it suppresses the arming pulse, and every beat of the fill that
+    // follows is then dropped because no way was ever selected.
+    //
+    // Zeroing the byte enables leaves the arming and way selection intact while
+    // writing no data. The tag and valid bits are still written on those cycles,
+    // which is harmless: the line being tagged is the line being filled, and the
+    // real beats follow immediately behind.
+    assign l2_byte_enable_p1_gated = l2_p1_write_source_valid ? l2_byte_enable_p1
+                                                              : {LINE_BYTE_COUNT{1'b0}};
     assign l2_write_block_p2 = {LINE_MEM_BEAT_COUNT{mem_rsp_rdata_q}};
     assign unused_controller_outputs = instr_write_start | write_next;
     assign cache_traffic_busy = controller_busy | (unused_controller_outputs & 1'b0);
@@ -184,14 +232,19 @@ module cache #(
     assign maint_ready = ~maint_pending | maint_execute;
     assign maint_done = maint_done_q;
     assign maint_error = maint_error_q;
-    assign cache_array_rst = rst | maint_invalidate_pulse;
-    assign l2_maint_addr = maint_addr_q[L2_ADDR_WIDTH-1:0];
+    assign cache_array_rst_n = rst_n & ~maint_invalidate_pulse;
+    assign l2_maint_addr = maint_addr_q[ADDR_WIDTH-1:LINE_OFFSET_WIDTH];
     assign l1_data_maint_tag_and_idx = maint_addr_q[ADDR_WIDTH-1:LINE_WORD_OFFSET_WIDTH+BYTE_OFFSET_WIDTH];
     assign l1_instr_maint_tag_and_idx = maint_addr_q[ADDR_WIDTH-1:LINE_WORD_OFFSET_WIDTH+BYTE_OFFSET_WIDTH];
 
     always @(*) begin
         mem_req_wdata_aligned = {MEM_DATA_WIDTH{1'b0}};
-        write_addr_delta = (mem_write_addr_internal - MEMORY_BASE_ADDR) - {{(32-ADDR_WIDTH){1'b0}}, data_req_addr};
+        // data_req_wdata holds the whole DATA_WIDTH access, so byte 0 of it is
+        // the access-aligned base -- not data_req_addr itself. Measuring the
+        // delta from the raw address makes an odd-word store read its data from
+        // the wrong lanes once the strobe generator stops double-counting.
+        write_addr_delta = (mem_write_addr_internal - MEMORY_BASE_ADDR) -
+            ({{(32-ADDR_WIDTH){1'b0}}, data_req_addr} & ~(DATA_BYTE_COUNT - 1));
         for (write_byte_index = 0; write_byte_index < MEM_BYTE_COUNT; write_byte_index = write_byte_index + 1) begin
             write_source_byte_index = write_addr_delta + write_byte_index;
             if ((write_source_byte_index >= 0) && (write_source_byte_index < DATA_BYTE_COUNT)) begin
@@ -202,7 +255,7 @@ module cache #(
     end
 
     always @(posedge clk) begin
-        if (rst) begin
+        if (!rst_n) begin
             mem_rsp_valid_q <= 1'b0;
             mem_rsp_rdata_q <= {MEM_DATA_WIDTH{1'b0}};
             l1_data_hit_q <= 1'b0;
@@ -278,7 +331,7 @@ module cache #(
         .LINE_BYTE_COUNT(LINE_BYTE_COUNT)
     ) cache_l1_data_inst (
         .clk(clk),
-        .rst(cache_array_rst),
+        .rst_n(cache_array_rst_n),
         .read(data_cache_read | data_req_read),
         .write(write_l2 | (write_through & l1_data_hit_q)),
         .write_L2(write_l2),
@@ -304,7 +357,7 @@ module cache #(
         .BYTE_OFFSET_WIDTH(BYTE_OFFSET_WIDTH)
     ) cache_l1_instr_inst (
         .clk(clk),
-        .rst(cache_array_rst),
+        .rst_n(cache_array_rst_n),
         .read(instr_cache_read | instr_req_valid),
         .fill(l1_instr_write),
         .invalidate_line(maint_invalidate_line_pulse),
@@ -325,17 +378,23 @@ module cache #(
         .LINE_BYTE_COUNT(LINE_BYTE_COUNT)
     ) cache_l2_inst (
         .clk(clk),
-        .rst(cache_array_rst),
+        .rst_n(cache_array_rst_n),
         .read_p1(l2_read_p1),
         .read_p2(l2_read_p2),
         .write_p1(l2_write_p1 & (write_through | mem_rsp_valid_q)),
         .write_p2(l2_write_p2 & mem_rsp_valid_q),
         .data_block_write_p1(l2_write_block_p1),
         .data_block_write_p2(l2_write_block_p2),
-        .byte_enable_p1(l2_byte_enable_p1),
+        .byte_enable_p1(l2_byte_enable_p1_gated),
         .byte_enable_p2(l2_byte_enable_p2),
-        .addr_p1(data_req_addr[L2_ADDR_WIDTH-1:0]),
-        .addr_p2(l2_p2_addr),
+        // LINE addresses. cache_l2 splits what it is given into tag[14:8] and
+        // index[7:0]; handing it a BYTE address made the index select on
+        // byte[7:0] (so one 16-byte line spanned 16 sets) and silently dropped
+        // address bits [18:15], aliasing everything above 32 kB onto the low
+        // 32 kB. Slicing to a line address restores the intended geometry:
+        // 256 sets x 16 B = 4 kB per way, tag = byte[18:12], full 512 kB reach.
+        .addr_p1(data_req_addr[ADDR_WIDTH-1:LINE_OFFSET_WIDTH]),
+        .addr_p2(l2_p2_addr[ADDR_WIDTH-1:LINE_OFFSET_WIDTH]),
         .invalidate_line(maint_invalidate_line_pulse),
         .invalidate_addr(l2_maint_addr),
         .ram_write_start(mem_write_start),
@@ -359,7 +418,7 @@ module cache #(
         .MEMORY_BASE_ADDR(MEMORY_BASE_ADDR)
     ) cache_controller_inst (
         .clk(clk),
-        .rst(rst),
+        .rst_n(rst_n),
         .ram_req_ready(mem_req_ready),
         .ram_rsp_valid(mem_rsp_valid_q),
         .l2_data_block_p1(l2_read_block_p1),

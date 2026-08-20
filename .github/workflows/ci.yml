@@ -7,6 +7,13 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # The full suite is the configuration matrix, the geometry sweep, the random
+    # traffic cases, the block tests and the parameter compile sweep. It takes
+    # well over the default step budget on a cold ccache.
+    timeout-minutes: 120
+
+    env:
+      UVM_HOME: ${{ github.workspace }}/uvm-core/src
 
     steps:
       - name: Checkout
@@ -17,5 +24,39 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y make verilator iverilog ripgrep
 
+      # UVM is not packaged by any distribution, and `make verify` refuses to
+      # run without it rather than silently skipping the UVM stages. Pinned to a
+      # tag so a change upstream cannot turn a green branch red on its own. 2020.3.1
+      # is the version the suite is developed and validated against locally.
+      - name: Fetch UVM
+        run: |
+          git clone --depth 1 --branch 2020.3.1 \
+            https://github.com/accellera-official/uvm-core.git uvm-core
+          test -f "$UVM_HOME/uvm_pkg.sv"
+
+      # Recorded in the log because the suite is developed against Verilator
+      # 5.050, and several things it relies on are version-sensitive: SVA cover
+      # directives under --coverage-user (covergroups are not implemented),
+      # --binary --timing, and the absence of `bind` into a uvm_pkg-importing
+      # module. A failure here is much easier to read with the version in front
+      # of you.
+      - name: Tool versions
+        run: |
+          verilator --version
+          iverilog -V | head -1
+
       - name: Verify cache
         run: make verify
+
+      # Kept on failure so a red run can be diagnosed without reproducing it
+      # locally: the per-case run logs carry the UVM report summaries and any
+      # assertion or checker output.
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-logs
+          path: |
+            sim/**/*.log
+          retention-days: 14
+          if-no-files-found: ignore

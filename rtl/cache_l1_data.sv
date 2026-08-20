@@ -15,7 +15,7 @@ module cache_l1_data#( // L1 data cache top module
     )
     (
     input clk,
-    input rst,
+    input rst_n,
     input read,
     input write,
     input write_L2,
@@ -57,7 +57,7 @@ module cache_l1_data#( // L1 data cache top module
     assign offset_input = addr[BYTE_OFFSET_WIDTH-1:0];
     assign we_set2 = write & we_s2;
     assign we_set1 = write & we_s1;
-    assign hit = ((read | write) & (hit_s1 | hit_s2)) & (~rst);
+    assign hit = ((read | write) & (hit_s1 | hit_s2)) & rst_n;
     assign cache_set_output_select = ((read | write) & (hit_s2 & (~hit_s1)));
 
     cache_l1_memory_way#( // SET1
@@ -69,7 +69,7 @@ module cache_l1_data#( // L1 data cache top module
         )
     cache_set_0(
         .clk(clk),
-        .rst(rst),
+        .rst_n(rst_n),
         .block_write(data_in_write),
         .tag_and_idx({tag_input,idx_input}),
         .we(we_set1),
@@ -90,7 +90,7 @@ module cache_l1_data#( // L1 data cache top module
         )
     cache_set_1(
         .clk(clk),
-        .rst(rst),
+        .rst_n(rst_n),
         .block_write(data_in_write),
         .tag_and_idx({tag_input,idx_input}),
         .we(we_set2),
@@ -128,7 +128,7 @@ module cache_l1_data#( // L1 data cache top module
         )
     cache_replacement_inst(
         .clk(clk),
-        .rst(rst),
+        .rst_n(rst_n),
         .read(read),
         .write(write),
         .idx(idx_input),

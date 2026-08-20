@@ -12,11 +12,17 @@ module cache_controller #(
         parameter DATA_BYTE_COUNT = DATA_WIDTH / 8,
         parameter MEM_BYTE_COUNT = MEM_DATA_WIDTH / 8,
         parameter LINE_OFFSET_WIDTH = 4,
+        // Became unused when the L2 ports moved to being sliced to a line
+        // address at the instantiation in cache.sv rather than being carried as
+        // a narrow address through the controller. Kept so the parameter list
+        // still documents the derived width the L2 side uses.
+        /* verilator lint_off UNUSEDPARAM */
         parameter L2_ADDR_WIDTH = ADDR_WIDTH - LINE_OFFSET_WIDTH,
+        /* verilator lint_on UNUSEDPARAM */
         parameter MEMORY_BASE_ADDR = 32'h2000_0000
         ) (
         input clk,
-        input rst,
+        input rst_n,
         input ram_req_ready,
         input ram_rsp_valid,
         input [LINE_WIDTH-1:0] l2_data_block_p1,
@@ -39,7 +45,12 @@ module cache_controller #(
         output reg L2_write_p2,
         output reg [LINE_BYTE_COUNT-1:0] L2_byte_enable_p1,
         output reg [LINE_BYTE_COUNT-1:0] L2_byte_enable_p2,
-        output [L2_ADDR_WIDTH-1:0] L2_p2_addr,
+        // BYTE address, full width. It feeds two different consumers: the
+        // main-memory read address (which wants bytes) and the L2 array port
+        // (which wants a LINE address). cache.sv does the byte->line slice at
+        // the L2 port; keeping this in bytes is what lets ram_addr_L2_instr and
+        // ram_read_addr below stay correct.
+        output [ADDR_WIDTH-1:0] L2_p2_addr,
         output [MEM_DATA_WIDTH-1:0] ram_data,
         output [31:0] ram_read_addr,
         output [31:0] ram_write_addr,
@@ -72,6 +83,12 @@ module cache_controller #(
     localparam [LINE_BYTE_COUNT-1:0] MEMORY_BEAT_BYTE_MASK =
         {{(LINE_BYTE_COUNT-MEM_BYTE_COUNT){1'b0}}, {MEM_BYTE_COUNT{1'b1}}};
     localparam MEM_BYTE_OFFSET_WIDTH = $clog2(MEM_BYTE_COUNT);
+    // Clears the sub-word bits of an address, leaving the memory word it falls
+    // in. Write-through beats must be emitted on a memory word boundary: the
+    // byte enables that accompany them index bytes *within* that word, so an
+    // address carrying a sub-word offset would apply the offset twice.
+    localparam [ADDR_WIDTH-1:0] MEM_WORD_MASK =
+        {{(ADDR_WIDTH-MEM_BYTE_OFFSET_WIDTH){1'b1}}, {MEM_BYTE_OFFSET_WIDTH{1'b0}}};
 
     // State for Instruction Cache Control
     reg [3:0] state_instr;
@@ -117,6 +134,7 @@ module cache_controller #(
     reg transfer_data_step1; // step 1 for data transfer is done//
     reg ram_write_start_data; // First write signal for L2 cache from data, for replacement algorithm
     reg write_through_miss; // write through miss occurs when writing into an address that does not exist in L1 data cache
+    wire data_write_in_progress; // data write occupies the write-through pipeline, keeps busy asserted
     reg start_write_transfer; // start write transfer
     reg start_write_transfer2; // acknowledge that the next write beat is ready
     // State for Main Memory Transfer (While Reading instruction or data)
@@ -168,12 +186,28 @@ module cache_controller #(
     assign ram_read_addr  = transfer_instr == 1 ?
                             (MEMORY_BASE_ADDR + {{(32-ADDR_WIDTH){1'b0}}, ram_addr_L2_instr}) :
                             (MEMORY_BASE_ADDR + {{(32-ADDR_WIDTH){1'b0}}, ram_addr_l2_data}); // decide on which address will be used for ram
-    assign miss = miss_L1_instr | miss_L1_data |
+    // A data write occupies the write-through pipeline for several cycles after
+    // the command is accepted, and that pipeline keeps sampling the CPU's
+    // address, data and byte strobes right up to the memory write beat. The
+    // miss terms below only cover read and fill activity, so a write that hit
+    // in L1 used to leave busy low while the write-through was still in flight.
+    // The CPU adaptor is then entitled by the timing contract to drop the
+    // command, which collapsed the memory-side strobes to zero and silently
+    // lost the store in main memory. Holding busy for the whole write path is
+    // what makes "command complete when busy is 0" true for writes as well.
+    assign data_write_in_progress = (state_data >= state_data_write_step0) &
+                                    (state_data <= state_data_writethrough_done);
+    assign miss = miss_L1_instr | miss_L1_data | data_write_in_progress |
                   (~L1_data_hit & (data_read_request | data_cache_read)) |
                   (~L1_instr_hit & (instr_request | instr_cache_read)); // miss output
+    // Prefetch-the-next-line when the current fetch hits but the next one is
+    // known to miss. The increment is LINE_BYTE_COUNT because this address is
+    // in BYTES; the old code added 2, which is only meaningful if the value is
+    // in line units, and that byte/line confusion is exactly what corrupted the
+    // instruction stream (a fetch at 0x30 returned the line at 0x20).
     assign L2_p2_addr = ((L1_instr_hit & L1_miss_next)) == 1'b1 ?
-                        (L1_instr_addr[L2_ADDR_WIDTH-1:0] + {{(L2_ADDR_WIDTH-2){1'b0}}, 2'b10}) :
-                        L1_instr_addr[L2_ADDR_WIDTH-1:0]; // L2 address being decided if there is a miss next it will be next idx address
+                        (L1_instr_addr + ADDR_WIDTH'(LINE_BYTE_COUNT)) :
+                        L1_instr_addr;
     assign ram_write_start = ram_write_start_instr | ram_write_start_data;
     assign line_addr_mask = {ADDR_WIDTH{1'b1}} << LINE_OFFSET_WIDTH;
     assign main_mem_read_beat_ack = transfer_data_step1 | transfer_instr_step1;
@@ -195,8 +229,15 @@ module cache_controller #(
         data_write_next_strobe = {MEM_BYTE_COUNT{1'b0}};
         data_write_last_beat_index = 8'b0;
         for (data_write_strobe_index = 0; data_write_strobe_index < DATA_BYTE_COUNT; data_write_strobe_index = data_write_strobe_index + 1) begin
-            data_write_byte_index = data_write_strobe_index;
-            data_write_byte_index = data_write_byte_index + (({{(32-ADDR_WIDTH){1'b0}}, L1_data_addr}) % MEM_BYTE_COUNT);
+            // data_write_strobe already encodes the byte's position inside the
+            // DATA_WIDTH access -- the core positions it by addr[1:0] and the
+            // adapter shifts it by addr[2]. The beat base address, however, is
+            // only MEM_BYTE_COUNT-aligned, so the access-aligned part of the
+            // offset has to come back OUT here or addr[2] is counted twice and
+            // the store lands one memory word too high.
+            data_write_byte_index = data_write_strobe_index -
+                ((({{(32-ADDR_WIDTH){1'b0}}, L1_data_addr}) % DATA_BYTE_COUNT) &
+                 ~(MEM_BYTE_COUNT - 1));
             data_write_beat_candidate = data_write_byte_index / MEM_BYTE_COUNT;
             if (data_write_strobe[data_write_strobe_index]) begin
                 if (data_write_beat_candidate == {24'b0, data_write_beat_index}) begin
@@ -213,7 +254,7 @@ module cache_controller #(
     end
 
     always @(posedge clk) begin // main memoryden okuma sirasini belirlemek icin yapilan state machine
-        if(rst) begin
+        if (!rst_n) begin
             transfer_instr       <= 1'b0;
             transfer_data        <= 1'b0;
             state_main_mem_usage <= state_main_mem_usage_idle;
@@ -264,7 +305,7 @@ module cache_controller #(
     end
 
     always @(posedge clk) begin // instruction cache control
-        if(rst) begin
+        if (!rst_n) begin
             instr_cache_read <= 1'b0;
             L2_read_p2        <= 1'b0;
             miss_L1_instr       <= 1'b0;
@@ -332,7 +373,7 @@ module cache_controller #(
                         instr_fill_beat_index   <= 8'b0;
                         L2_byte_enable_p2       <= MEMORY_BEAT_BYTE_MASK;
                         ram_write_start_instr   <= 1'b1;
-                        ram_addr_L2_instr         <= {{(ADDR_WIDTH-L2_ADDR_WIDTH){1'b0}}, L2_p2_addr} & line_addr_mask;
+                        ram_addr_L2_instr         <= L2_p2_addr & line_addr_mask;
                         state_instr               <= state_instr_miss_L2_step0;
                     end
                 end
@@ -396,7 +437,7 @@ module cache_controller #(
     end
 
     always @(posedge clk) begin // native memory read valid/ready sequencing
-        if(rst) begin
+        if (!rst_n) begin
             state_main_mem <= state_main_mem_idle;
             main_mem_done_step0 <= 1'b0;
             main_mem_read_beat_index <= 8'b0;
@@ -448,7 +489,7 @@ module cache_controller #(
     end
 
     always @(posedge clk) begin // native memory write valid/ready sequencing
-        if(rst) begin
+        if (!rst_n) begin
             state_main_mem_write <= state_main_mem_write_idle;
             main_mem_write_done  <= 1'b0;
             main_mem_write_step1_done <= 1'b0;
@@ -500,7 +541,7 @@ module cache_controller #(
     end
 
     always @(posedge clk) begin // data cache control
-        if(rst) begin
+        if (!rst_n) begin
             write_through_miss              <= 1'b0;
             data_cache_read <= 1'b0;
             L2_read_p1                    <= 1'b0;
@@ -692,7 +733,16 @@ module cache_controller #(
 
             state_data_writethrough_step6: begin // L2'den okuma yapildi.
                 start_write_transfer     <= 1'b1;
-                ram_addr_l2_data_write   <= L1_data_addr;
+                // Aligned to the memory word rather than taken raw. The strobe
+                // generator above already places byte lane N at slot
+                // (addr%MEM_BYTE_COUNT + N)%MEM_BYTE_COUNT, so it assumes the
+                // beat address names a word; and cache.sv derives the data shift
+                // from (beat address - store address), which only spans the
+                // right lanes when the beat address is aligned. Passing the raw
+                // address applied the offset twice in the strobes and not at all
+                // in the data, which dropped the lowest lanes of an unaligned
+                // store on the floor.
+                ram_addr_l2_data_write   <= L1_data_addr & MEM_WORD_MASK;
                 data_write_beat_index    <= 8'b0;
                 wr_strb                  <= data_write_current_strobe;
                 if(data_write_last_beat_index != 8'b0) begin
@@ -719,7 +769,7 @@ module cache_controller #(
             state_data_writethrough_done: begin
                 if(main_mem_write_done) begin
                     wr_strb               <= {MEM_BYTE_COUNT{1'b0}};
-                    ram_addr_l2_data_write  <= L1_data_addr;
+                    ram_addr_l2_data_write  <= L1_data_addr & MEM_WORD_MASK;
                     start_write_transfer    <= 1'b0;
                     start_write_transfer2   <= 1'b0;
                     if(write_through_miss) begin

@@ -10,7 +10,7 @@ module cache_l2_memory_way#(
     )
     (
     input clk,
-    input rst,
+    input rst_n,
     input [LINE_WIDTH-1:0] block_write_p1,
     input [LINE_WIDTH-1:0] block_write_p2,
     input [TAG_WIDTH + INDEX_WIDTH-1:0] tag_and_idx_p1,
@@ -56,7 +56,7 @@ module cache_l2_memory_way#(
         .DATA_WIDTH(TAG_WIDTH + 1)
     ) cache_l2_memory_tag_valid_array_inst(
         .clk(clk),
-        .rst(rst),
+        .rst_n(rst_n),
         .we_p1(we_p1),
         .we_p2(we_p2),
         .invalidate(invalidate),
