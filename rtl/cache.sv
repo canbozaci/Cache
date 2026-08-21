@@ -239,12 +239,7 @@ module cache #(
 
     always @(*) begin
         mem_req_wdata_aligned = {MEM_DATA_WIDTH{1'b0}};
-        // data_req_wdata holds the whole DATA_WIDTH access, so byte 0 of it is
-        // the access-aligned base -- not data_req_addr itself. Measuring the
-        // delta from the raw address makes an odd-word store read its data from
-        // the wrong lanes once the strobe generator stops double-counting.
-        write_addr_delta = (mem_write_addr_internal - MEMORY_BASE_ADDR) -
-            ({{(32-ADDR_WIDTH){1'b0}}, data_req_addr} & ~(DATA_BYTE_COUNT - 1));
+        write_addr_delta = (mem_write_addr_internal - MEMORY_BASE_ADDR) - {{(32-ADDR_WIDTH){1'b0}}, data_req_addr};
         for (write_byte_index = 0; write_byte_index < MEM_BYTE_COUNT; write_byte_index = write_byte_index + 1) begin
             write_source_byte_index = write_addr_delta + write_byte_index;
             if ((write_source_byte_index >= 0) && (write_source_byte_index < DATA_BYTE_COUNT)) begin

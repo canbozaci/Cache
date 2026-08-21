@@ -229,15 +229,8 @@ module cache_controller #(
         data_write_next_strobe = {MEM_BYTE_COUNT{1'b0}};
         data_write_last_beat_index = 8'b0;
         for (data_write_strobe_index = 0; data_write_strobe_index < DATA_BYTE_COUNT; data_write_strobe_index = data_write_strobe_index + 1) begin
-            // data_write_strobe already encodes the byte's position inside the
-            // DATA_WIDTH access -- the core positions it by addr[1:0] and the
-            // adapter shifts it by addr[2]. The beat base address, however, is
-            // only MEM_BYTE_COUNT-aligned, so the access-aligned part of the
-            // offset has to come back OUT here or addr[2] is counted twice and
-            // the store lands one memory word too high.
-            data_write_byte_index = data_write_strobe_index -
-                ((({{(32-ADDR_WIDTH){1'b0}}, L1_data_addr}) % DATA_BYTE_COUNT) &
-                 ~(MEM_BYTE_COUNT - 1));
+            data_write_byte_index = data_write_strobe_index;
+            data_write_byte_index = data_write_byte_index + (({{(32-ADDR_WIDTH){1'b0}}, L1_data_addr}) % MEM_BYTE_COUNT);
             data_write_beat_candidate = data_write_byte_index / MEM_BYTE_COUNT;
             if (data_write_strobe[data_write_strobe_index]) begin
                 if (data_write_beat_candidate == {24'b0, data_write_beat_index}) begin
