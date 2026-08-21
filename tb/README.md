@@ -8,6 +8,12 @@ testbenches that previously lived in this directory.
 - Verilator >= 5.046 (UVM support; this was developed against 5.050)
 - Accellera `uvm-core` sources, with `UVM_HOME` pointing at their `src/`
   directory. Compiled with `+define+UVM_NO_DPI`.
+- An SMT solver (`z3`, or `cvc5`) **installed before Verilator is built**.
+  Verilator hands constrained randomization to an external solver and detects
+  which one at configure time. Without it the directed cases still pass and the
+  random traffic dies immediately with
+  `UVM_FATAL [RANDFAIL] cache_traffic_item randomization failed`, which looks
+  like a stimulus bug rather than a missing package.
 
 **Distribution packages are generally too old.** Debian and Ubuntu currently
 ship 5.020, which does not implement `##` cycle delays in sequence expressions

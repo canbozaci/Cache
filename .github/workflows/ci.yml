@@ -28,7 +28,16 @@ jobs:
           sudo apt-get install -y make iverilog ripgrep \
             git help2man perl python3 autoconf g++ flex bison ccache \
             libgoogle-perftools-dev numactl perl-doc libfl2 libfl-dev \
-            zlib1g zlib1g-dev
+            zlib1g zlib1g-dev z3
+
+      # z3 above is not optional. Verilator hands constrained randomization to an
+      # external SMT solver and detects which one at *configure* time, so it has
+      # to be installed before the build below, not just before the run. Without
+      # it the simple constraints still solve but cache_traffic_item's do not,
+      # and the random traffic seeds die at 200ns with
+      # "UVM_FATAL [RANDFAIL] cache_traffic_item randomization failed" while
+      # every directed case still passes -- which reads like a stimulus bug
+      # rather than a missing package.
 
       # Verilator is built from source, pinned, rather than taken from apt.
       #
@@ -44,7 +53,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/verilator-install
-          key: verilator-${{ env.VERILATOR_VERSION }}-${{ runner.os }}
+          # The solver is part of the key: Verilator bakes the SMT solver it
+          # found into the build, so an install cached from before z3 was
+          # added would still fail randomization.
+          key: verilator-${{ env.VERILATOR_VERSION }}-z3-${{ runner.os }}
 
       - name: Build Verilator
         if: steps.cache-verilator.outputs.cache-hit != 'true'
@@ -80,18 +92,58 @@ jobs:
           verilator --version
           iverilog -V | head -1
 
+      # The full output is megabytes -- every Verilator compile line and the
+      # complete UVM report for all 30 configurations -- which the web log view
+      # truncates, leaving a step you cannot read. So the run goes to a file and
+      # only a condensed view reaches the console: the stage banners, the case
+      # names, and on failure the errors themselves with the zero-count summary
+      # lines filtered out (every passing case prints "UVM_ERROR :    0", which
+      # otherwise buries the real ones).
+      #
+      # The complete logs are uploaded as an artifact either way.
       - name: Verify cache
-        run: make verify
+        run: |
+          set +e
+          make verify > verify.log 2>&1
+          rc=$?
+          set -e
+
+          echo "===== stages ====="
+          grep -E "^MAKE .* (STARTED|FINISHED)$|^PASSED$|^FAILED$" verify.log || true
+
+          echo
+          echo "===== configurations ====="
+          grep -E "^UVM CASE:" verify.log || true
+
+          if [ "$rc" -ne 0 ]; then
+            echo
+            echo "===== failures ====="
+            grep -nE "^CASE FAILED|BUILD FAILED|%Error" verify.log | head -40 || true
+            echo
+            echo "===== first errors ====="
+            grep -nE "UVM_ERROR|UVM_FATAL" verify.log \
+              | grep -v "UVM_ERROR :    0" \
+              | grep -v "UVM_FATAL :    0" \
+              | head -40 || true
+            echo
+            echo "Full logs are in the verify-logs artifact for this run."
+          fi
+
+          exit $rc
 
       # Kept on failure so a red run can be diagnosed without reproducing it
       # locally: the per-case run logs carry the UVM report summaries and any
       # assertion or checker output.
-      - name: Upload logs on failure
-        if: failure()
+      # Uploaded on success too: a green run's logs are what you compare against
+      # when a later one goes red, and they are the only place the per-case UVM
+      # reports survive.
+      - name: Upload logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: verify-logs
           path: |
+            verify.log
             sim/**/*.log
           retention-days: 14
           if-no-files-found: ignore
